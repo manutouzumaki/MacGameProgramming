@@ -19,11 +19,10 @@
 
 #include "handmade.cpp"
 #include "mac_sound_sys.cpp"
+
+// TODO: memory managment
 // TODO: add mac prefixx to the function on this file ...
 // TODO: make structs for this globals
-
-
-
 
 // globals for initialize  metal
 static const NSUInteger gMaxInFlightBuffers = 3;

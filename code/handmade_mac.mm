@@ -18,18 +18,12 @@
 #include "handmade.h"
 
 #include "handmade.cpp"
-
+#include "mac_sound_sys.cpp"
 // TODO: add mac prefixx to the function on this file ...
 // TODO: make structs for this globals
 
-struct MacSoundBuffer {
-    void *soundBuffer;
-    size_t soundBufferSize;
-    int32 playCursor;
-    int32 soundBufferMaxFrames;
-};
 
-static MacSoundBuffer gMacSoundBuffer;
+
 
 // globals for initialize  metal
 static const NSUInteger gMaxInFlightBuffers = 3;
@@ -55,7 +49,6 @@ static GameInput *gCurrentInput;
 static GameInput *gLastInput;
 
 
-
 void ShutdownMetal();
 void ShutdownSoftwareRenderer();
 void DrawSoftwareRenderer(MTKView *view);
@@ -65,7 +58,9 @@ void ProcessInput(GameInput *input);
 @end
 
 @implementation GameWindow
+
 - (void)keyDown:(NSEvent *)theEvent { /* NOTE: this removes the beeps that the keyboard does */ }
+
 @end
 
 
@@ -80,6 +75,7 @@ void ProcessInput(GameInput *input);
     static bool appShutdown = false;
     if(appShutdown == false) {
         appShutdown = true;
+        MacSoundSysShutdown();
         ShutdownSoftwareRenderer();
         ShutdownMetal();
     }
@@ -365,68 +361,43 @@ void ShutdownMetal() {
 OSStatus SummitSound(void *inRefCon, AudioUnitRenderActionFlags *ioActionFlags,
                           const AudioTimeStamp *inTimeStamp, UInt32 inBusNumber,
                           UInt32 inNumberFrames, AudioBufferList *ioData) {
-#if 0
-    // Fixed amplitude is good enough for our purposes
-    const double amplitude = 10000.0;
-    static double theta = 0.0;
-    double theta_increment = 2.0 * M_PI * frequency / 48000;
-
-    // This is a mono tone generator so we only need the first buffer
-    short *buffer = (short *)ioData->mBuffers[0].mData;
+    int16 *soundBuffer = (int16 *)ioData->mBuffers[0].mData;
+    //memset(soundBuffer, 0, sizeof(int32) * inNumberFrames);
     
-    // Generate the samples
-    NSLog(@"number of samples per frame %d", inNumberFrames);
-    for (UInt32 i = 0; i < inNumberFrames; i++)
-    {
-        unsigned short maxShort = -1;
-        short value = (short)(sin(theta) * amplitude);
-        *buffer++ = value;
-        *buffer++ = value;
+// TODO: go through the actived channels in the system and play the if the are playing
+    if(gMacSoundSys.channels == nullptr) return noErr;
+
+    MacSoundHandle handle = gMacSoundSys.first;
+    while(handle != -1) {
+        MacSoundChannel *channel = gMacSoundSys.channels + handle; 
         
-        theta += theta_increment;
-        if (theta > 2.0 * M_PI)
-        {
-            theta -= 2.0 * M_PI;
+        if(channel->playing) {
+            int32 samplesLeft = channel->sampleCount - channel->currentSample;
+            int32 samplesToStream = MIN(inNumberFrames, samplesLeft);
+
+            int16 *dst = soundBuffer;
+            int16 *src = (int16 *)((int32 *)channel->stream->data + channel->currentSample);
+            for (UInt32 i = 0; i < samplesToStream; i++)
+            {
+                *dst++ = *src++;
+                *dst++ = *src++;
+            }
+
+            if(channel->loop) {
+                channel->currentSample = (channel->currentSample + samplesToStream) % channel->sampleCount;
+            }
+            else {
+                channel->currentSample = channel->currentSample + samplesToStream;
+                if(channel->currentSample >= channel->sampleCount) {
+                    channel->currentSample = 0;
+                    channel->playing = false;
+                }
+            }
         }
-    }
-    
-    return noErr;
-#endif
-    int16 *destBuffer = (int16 *)ioData->mBuffers[0].mData;
-    
-    int32 maxIndexToWrite = gMacSoundBuffer.playCursor + (inNumberFrames - 1);
-    int32 maxIndexSupported = (gMacSoundBuffer.soundBufferMaxFrames - 1);
 
-    if(maxIndexToWrite > maxIndexSupported) {        
-        int32 diff = maxIndexToWrite - maxIndexSupported; 
-        int32 framesToWrite = inNumberFrames - diff;
-
-        int16 *sourBuffer = (int16 *)((int32 *)gMacSoundBuffer.soundBuffer + gMacSoundBuffer.playCursor);
-        for (UInt32 i = 0; i < framesToWrite; i++)
-        {
-            // TODO: take into acount that the sourBuffer is a fuking ring buffe ...
-            *destBuffer++ = *sourBuffer++;
-            *destBuffer++ = *sourBuffer++;
-        } 
-        sourBuffer = (int16 *)((int32 *)gMacSoundBuffer.soundBuffer);
-        for (UInt32 i = 0; i < diff; i++)
-        {
-            // TODO: take into acount that the sourBuffer is a fuking ring buffe ...
-            *destBuffer++ = *sourBuffer++;
-            *destBuffer++ = *sourBuffer++;
-        } 
-    }
-    else {
-        int16 *sourBuffer = (int16 *)((int32 *)gMacSoundBuffer.soundBuffer + gMacSoundBuffer.playCursor);
-        for (UInt32 i = 0; i < inNumberFrames; i++)
-        {
-            // TODO: take into acount that the sourBuffer is a fuking ring buffe ...
-            *destBuffer++ = *sourBuffer++;
-            *destBuffer++ = *sourBuffer++;
-        }   
+        handle = channel->next;
     }
 
-    gMacSoundBuffer.playCursor = (gMacSoundBuffer.playCursor + inNumberFrames) % gMacSoundBuffer.soundBufferMaxFrames;
     return noErr;
 }
 
@@ -500,59 +471,60 @@ bool WriteWaveFile(const char *szFileName, void *pData, int32 nDataSize, int16 n
 	return true;
 }
 
-// a summit sound up tp 45ms seems like a good amount
-// this work becouse we know we are sending less that four second of audio
-// TODO:  implement a streaming system to play music
-void WriteSoundToMacSoundBuffer(void *src, size_t size) {
-    int32 pCursor = gMacSoundBuffer.playCursor;
-    int32 wCursor = (pCursor + 2160) % gMacSoundBuffer.soundBufferMaxFrames;
+MacSoundStream LoadWavFile(const char *szFileName) {
 
-    if(pCursor < wCursor) {
-        
-        int32 region0Size = (gMacSoundBuffer.soundBufferMaxFrames - wCursor) * sizeof(int32);
-        int32 region1Size = pCursor * sizeof(int32);
-
-        // fill the two region
-        int32 *region0 = ((int32 *)gMacSoundBuffer.soundBuffer) + wCursor;
-        memcpy(region0, src, region0Size); 
-
-        int32 leftSize = MAX(0, size - region0Size);
-
-        int32 bytesToWrite = MIN(leftSize, region1Size);
-
-        int32 *region1 = (int32 *)gMacSoundBuffer.soundBuffer;
-        memcpy(region1, (int8 *)src + region0Size, bytesToWrite);
-
+    FILE *file = fopen(szFileName, "rb");
+    if(!file) {
+        MacSoundStream zero = {};
+        return zero;
     }
-    else if(pCursor > wCursor) {
+    // go to the end of the file
+    fseek(file, 0, SEEK_END);
+    // get the size of the file to alloc the memory we need
+    long int fileSize = ftell(file);
+    // go back to the start of the file
+    fseek(file, 0, SEEK_SET);
+    // alloc the memory
+    uint8 *wavData = (uint8 *)malloc(fileSize + 1);
+    memset(wavData, 0, fileSize + 1);
+    // store the content of the file
+    fread(wavData, fileSize, 1, file);
+    wavData[fileSize] = '\0'; // null terminating string...
+    fclose(file);
 
-        int32 regionSize = (pCursor - wCursor) * sizeof(int32); 
-        int32 *region = ((int32 *)gMacSoundBuffer.soundBuffer) + wCursor;
-        memcpy(region, src, size);
+   
+    WaveFileHeader *header = (WaveFileHeader *)wavData;
+    void *data = (wavData + sizeof(WaveFileHeader)); 
 
-    }
+    MacSoundStream stream;
+    stream.data = data;
+    stream.size = header->m_nSubChunk2Size;
+    return stream;
 }
 
-void Add2SecSineWave() {
+
+MacSoundStream Create4SecSoundStream() {
     // Fill this buffer with four seconds of sound
-    int32 nSampleRate = 48000;
+    int32 nSampleRate = 44100;
     int32 nNumSeconds = 4;
     int32 nNumChannels = 2;
 
     int32 nNumSamples = nSampleRate * nNumChannels * nNumSeconds;
     const double amplitude = 10000.0;
     static double theta = 0.0;
-    double theta_increment = 2.0 * M_PI * frequency / 48000;
+    double theta_increment = 2.0 * M_PI * frequency / 44100;
 
-    int16 *soundBuffer = (int16 *)malloc(nNumSamples * sizeof(int32));
+    int32 *soundBuffer = (int32 *)malloc(nNumSamples * sizeof(int32));
 
     // Generate the samples
-    for(int32 nIndex = 0; nIndex < nNumSamples; nIndex += 2)
+    for(int32 nIndex = 0; nIndex < nNumSamples; nIndex++)
     {
         unsigned short maxShort = -1;
         short value = (short)(sin(theta) * amplitude);
-        soundBuffer[nIndex + 0] = value;
-        soundBuffer[nIndex + 1] = value;
+
+        int16 *dst = (int16 *)&soundBuffer[nIndex];
+        dst[0] = value;
+        dst[1] = value;
 
         theta += theta_increment;
         if (theta > 2.0 * M_PI)
@@ -561,26 +533,12 @@ void Add2SecSineWave() {
         }
     }
 
-    WriteSoundToMacSoundBuffer((void *)soundBuffer, nNumSamples * sizeof(int32));
+    MacSoundStream stream;
+    
+    stream.data = (void *)soundBuffer;
+    stream.size = nNumSamples * sizeof(int32);
 
-    free(soundBuffer);
-}
-
-
-
-void InitializeMacSoundBuffer() {
-
-    // Fill this buffer with four seconds of sound
-    int32 nSampleRate = 48000;
-    int32 nNumSeconds = 4;
-    int32 nNumChannels = 2;
-
-    int32 nNumSamples = nSampleRate * nNumChannels * nNumSeconds;
-
-    gMacSoundBuffer.soundBufferSize = nNumSamples * sizeof(int16);
-    gMacSoundBuffer.soundBuffer = malloc(gMacSoundBuffer.soundBufferSize);
-    gMacSoundBuffer.soundBufferMaxFrames = gMacSoundBuffer.soundBufferSize / sizeof(int32);
-    gMacSoundBuffer.playCursor = 0;
+    return stream;
 
 }
 
@@ -656,10 +614,8 @@ int main(int argc, const char *argv[]) {
     err = AudioUnitSetProperty(toneUnit, kAudioUnitProperty_SetRenderCallback, kAudioUnitScope_Input,
         0, &callbackStruct, sizeof(callbackStruct));
     
-    // TODO: change to 16 bit interleve channel format
-    // Set the format to 32 bit, single channel, floating point, linear PCM
     AudioStreamBasicDescription streamFormat;
-    streamFormat.mSampleRate = 48000;
+    streamFormat.mSampleRate = 44100;
     streamFormat.mFormatID = kAudioFormatLinearPCM;
     streamFormat.mFormatFlags = kAudioFormatFlagIsPacked | kAudioFormatFlagIsSignedInteger; 
     streamFormat.mFramesPerPacket = 1;
@@ -676,7 +632,14 @@ int main(int argc, const char *argv[]) {
         sizeof(AudioStreamBasicDescription));
 
 
-    InitializeMacSoundBuffer();
+    MacSoundSysInitialize(1024);
+
+
+    // Load the song wav file in to the sound system
+    // TODO: stream this file instead of load the entire file
+    NSString *testSoundPath = [[NSBundle mainBundle] pathForResource: @"test" ofType: @"wav"];
+    MacSoundStream testSound = LoadWavFile([testSoundPath UTF8String]);
+    MacSoundHandle testSoundHandle = MacSoundSysAdd(&testSound, true, true);
     
     // Initialize the audio unit
     err = AudioUnitInitialize(toneUnit);

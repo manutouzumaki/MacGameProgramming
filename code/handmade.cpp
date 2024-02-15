@@ -38,7 +38,7 @@ void GameUpdateAndRender(GameInput *input, GameBackBuffer *backBuffer) {
     if(input->controllers[0].A.endedDown) {
         if(!flag) {
             flag = true;
-            Add2SecSineWave();
+            //Add2SecSineWave();
         }
     }
     

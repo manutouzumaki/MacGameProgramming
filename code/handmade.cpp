@@ -5,50 +5,44 @@
 //  Created by Manuel Cabrerizo on 13/02/2024.
 //
 
-
-void Add2SecSineWave();
-
-void GameInitialize() {
-    
-    
-}
-
-static int frequency = 261;
 static MacSoundHandle testSound1Handle = -1;
 
-void GameUpdateAndRender(GameInput *input, GameBackBuffer *backBuffer) {
-    static int xOffset = 0;
-    static int yOffset = 0;
+void GameInitialize(Memory memory) {
+    // TODO: ASSERT((memory.used + sizeof(GameState)) <= memory.size);
+    GameState *gameState = (GameState *)memory.data;
+    memory.used += sizeof(GameState);
+
+}
+
+void GameUpdateAndRender(Memory memory, GameInput *input, GameBackBuffer *backBuffer) {
+
+    GameState *gameState = (GameState *)memory.data;
     
     if(input->controllers[0].left.endedDown) {
-        xOffset += 5;
+        gameState->xOffset += 5;
     }
     if(input->controllers[0].right.endedDown) {
-        xOffset -= 5;
+        gameState->xOffset -= 5;
     }
     if(input->controllers[0].up.endedDown) {
-        yOffset += 5;
-        frequency += 2;
+        gameState->yOffset += 5;
     }
     if(input->controllers[0].down.endedDown) {
-        yOffset -= 5;
-        frequency -= 2;
+        gameState->yOffset -= 5;
     }
 
     if(input->controllers[0].A.endedDown) {
-        MacSoundSysRestart(testSound1Handle);
-        MacSoundSysPlay(testSound1Handle);
+        // TODO: ...
+        //MacSoundSysRestart(&gMacSoundSys, testSound1Handle);
+        //MacSoundSysPlay(&gMacSoundSys, testSound1Handle);
     }
-    
-
-    
-    
+     
     unsigned char *row = (unsigned char *)backBuffer->data;
     for(int y = 0; y < backBuffer->height; ++y) {
         unsigned char *pixel = row;
         for(int x = 0; x < backBuffer->width; ++x) {
-            *pixel++ = x + xOffset;
-            *pixel++ = y + yOffset;
+            *pixel++ = x + gameState->xOffset;
+            *pixel++ = y + gameState->yOffset;
             *pixel++ = 0;
             *pixel++ = 0xFF;
         }

@@ -40,4 +40,21 @@ struct GameBackBuffer {
     int pitch;
 };
 
+struct Memory {
+    size_t size;
+    size_t used;
+    uint8 *data;
+};
+
+struct Arena {
+    size_t size;
+    size_t used;
+    uint8 *base;
+};
+
+struct GameState {
+    int32 xOffset;
+    int32 yOffset;
+};
+
 #endif

@@ -90,7 +90,7 @@ static const int32 GAME_MEMORY_SIZE = GB(1);
     gameBackBuffer.width = gRenderer.textureDesc.width;
     gameBackBuffer.height = gRenderer.textureDesc.height;
     gameBackBuffer.pitch = gRenderer.textureDesc.width * 4;
-    GameUpdateAndRender(gMemory, gInput.currentInput, &gameBackBuffer);
+    GameUpdateAndRender(gMemory, &gMacSoundSys.sound, gInput.currentInput, &gameBackBuffer);
 
     DrawSoftwareRenderer(&gRenderer, view);
     
@@ -148,6 +148,37 @@ static const int32 GAME_MEMORY_SIZE = GB(1);
 
 @end
 
+SoundHandle MacGameSoundLoad(const char *name, bool playing, bool loop) {
+    NSString *soundPath = [[NSBundle mainBundle] pathForResource: [NSString stringWithUTF8String:name] 
+                                                          ofType: @"wav"];
+    if(soundPath != nil) {
+        // TODO: pass our memory to store this files
+        MacSoundStream stream = LoadWavFile([soundPath UTF8String]);
+        MacSoundHandle soundHandle = MacSoundSysAdd(&gMacSoundSys, stream, playing, loop);
+        return (SoundHandle)soundHandle;
+    }
+
+    return -1;
+
+
+}
+
+void MacGameSoundRemove(SoundHandle *handle) {
+    MacSoundSysRemove(&gMacSoundSys, (MacSoundHandle *)handle);
+}
+
+void MacGameSoundPlay(SoundHandle handle) {
+    MacSoundSysPlay(&gMacSoundSys, (MacSoundHandle)handle);
+}
+
+void MacGameSoundPause(SoundHandle handle) {
+    MacSoundSysPause(&gMacSoundSys, (MacSoundHandle)handle);
+}
+
+void MacGameSoundRestart(SoundHandle handle) {
+    MacSoundSysRestart(&gMacSoundSys, (MacSoundHandle)handle);
+}
+
 void MacAppicationInitialize(MacApp *app) {
 
     NSRect windowRect =  NSMakeRect(0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT);
@@ -196,6 +227,13 @@ void MacAppicationInitialize(MacApp *app) {
 
     MacSoundSysInitialize(&gMacSoundSys, 1024);
 
+    // Initialize GameSound callbacks
+    gMacSoundSys.sound.Load = MacGameSoundLoad;
+    gMacSoundSys.sound.Remove = MacGameSoundRemove;
+    gMacSoundSys.sound.Play = MacGameSoundPlay;
+    gMacSoundSys.sound.Pause = MacGameSoundPause;
+    gMacSoundSys.sound.Restart = MacGameSoundRestart;
+
     // Initialize the audio unit
     AudioUnitInitialize(app->audioUnit);
     // Start playback
@@ -218,23 +256,7 @@ void MacApplicationShutdown(MacApp *app) {
 
 int main(int argc, const char *argv[]) {
     NSLog(@"Handmade Mac is running!");
-
     MacAppicationInitialize(&gMacApp);
-    GameInitialize(gMemory);
-     
-    // Load the song wav file in to the sound system
-    // TODO: stream this file instead of load the entire file
-    NSString *testSoundPath = [[NSBundle mainBundle] pathForResource: @"test" ofType: @"wav"];
-    if(testSoundPath != nil) {
-        MacSoundStream testSound = LoadWavFile([testSoundPath UTF8String]);
-        MacSoundHandle testSoundHandle = MacSoundSysAdd(&gMacSoundSys, &testSound, true, true);
-    }
-
-    NSString *testSoundPath1 = [[NSBundle mainBundle] pathForResource: @"test1" ofType: @"wav"];
-    if(testSoundPath1 != nil) {
-        MacSoundStream testSound1 = LoadWavFile([testSoundPath1 UTF8String]);
-        testSound1Handle = MacSoundSysAdd(&gMacSoundSys, &testSound1, false, false);
-    }
-
+    GameInitialize(gMemory, &gMacSoundSys.sound);
     return NSApplicationMain(argc, argv);
 }

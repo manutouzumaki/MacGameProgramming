@@ -33,6 +33,16 @@ struct GameInput {
     GameController controllers[4];
 };
 
+
+typedef int32 SoundHandle;
+struct GameSound {
+    SoundHandle (*Load) (const char *name, bool playing, bool loop);
+    void (*Remove) (SoundHandle *handle);
+    void (*Play) (SoundHandle handle);
+    void (*Pause) (SoundHandle handle);
+    void (*Restart) (SoundHandle handle);
+};
+
 struct GameBackBuffer {
     void *data;
     int width;
@@ -55,6 +65,9 @@ struct Arena {
 struct GameState {
     int32 xOffset;
     int32 yOffset;
+
+    SoundHandle oliviaRodrigo;
+    SoundHandle missionCompleted;
 };
 
 #endif

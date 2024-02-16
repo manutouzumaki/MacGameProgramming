@@ -7,14 +7,17 @@
 
 static MacSoundHandle testSound1Handle = -1;
 
-void GameInitialize(Memory memory) {
+void GameInitialize(Memory memory, GameSound *sound) {
     // TODO: ASSERT((memory.used + sizeof(GameState)) <= memory.size);
     GameState *gameState = (GameState *)memory.data;
     memory.used += sizeof(GameState);
 
+    gameState->oliviaRodrigo = sound->Load("test", true, true);
+    gameState->missionCompleted = sound->Load("test1", false, false);
+
 }
 
-void GameUpdateAndRender(Memory memory, GameInput *input, GameBackBuffer *backBuffer) {
+void GameUpdateAndRender(Memory memory, GameSound *sound, GameInput *input, GameBackBuffer *backBuffer) {
 
     GameState *gameState = (GameState *)memory.data;
     
@@ -32,15 +35,14 @@ void GameUpdateAndRender(Memory memory, GameInput *input, GameBackBuffer *backBu
     }
 
     if(input->controllers[0].A.endedDown) {
-        // TODO: ...
-        //MacSoundSysRestart(&gMacSoundSys, testSound1Handle);
-        //MacSoundSysPlay(&gMacSoundSys, testSound1Handle);
+        sound->Restart(gameState->missionCompleted);
+        sound->Play(gameState->missionCompleted);
     }
      
-    unsigned char *row = (unsigned char *)backBuffer->data;
-    for(int y = 0; y < backBuffer->height; ++y) {
-        unsigned char *pixel = row;
-        for(int x = 0; x < backBuffer->width; ++x) {
+    uint8 *row = (uint8 *)backBuffer->data;
+    for(int32 y = 0; y < backBuffer->height; ++y) {
+        uint8 *pixel = row;
+        for(int32 x = 0; x < backBuffer->width; ++x) {
             *pixel++ = x + gameState->xOffset;
             *pixel++ = y + gameState->yOffset;
             *pixel++ = 0;

@@ -13,7 +13,7 @@ struct MacSoundStream {
 };
 
 struct MacSoundChannel {
-    MacSoundStream *stream;
+    MacSoundStream stream;
 
     int32 sampleCount;
     int32 currentSample;
@@ -32,8 +32,9 @@ struct MacSoundSystem {
     int32 firstFree;
     int32 channelsCount;
     int32 channelsUsed;
-};
 
+    GameSound sound;
+};
 
 void MacSoundSysInitialize(MacSoundSystem *soundSys, int32 maxChannels) {
     soundSys->channelsCount = maxChannels;
@@ -49,7 +50,8 @@ void MacSoundSysInitialize(MacSoundSystem *soundSys, int32 maxChannels) {
     // Initialize the channels and free list
     for(int32 i = 0; i < maxChannels; i++) {
         MacSoundChannel *channel = soundSys->channels + i; 
-        channel->stream = nullptr;
+        channel->stream.data = nullptr;
+        channel->stream.size = 0;
         channel->loop = false;
         channel->playing = false;
         if(i < (maxChannels - 1))
@@ -72,7 +74,7 @@ void MacSoundSysShutdown(MacSoundSystem *soundSys) {
     }
 }
 
-MacSoundHandle MacSoundSysAdd(MacSoundSystem *soundSys, MacSoundStream *stream, bool playing, bool looping) {
+MacSoundHandle MacSoundSysAdd(MacSoundSystem *soundSys, MacSoundStream stream, bool playing, bool looping) {
 
     if((soundSys->channelsUsed + 1) > soundSys->channelsCount) {
         NSLog(@"Sound system full!!!");
@@ -94,7 +96,7 @@ MacSoundHandle MacSoundSysAdd(MacSoundSystem *soundSys, MacSoundStream *stream, 
     channel->stream = stream;
     channel->loop = looping;
     channel->playing = playing;
-    channel->sampleCount = stream->size / sizeof(int32);
+    channel->sampleCount = stream.size / sizeof(int32);
     channel->currentSample = 0;
 
     channel->next = soundSys->first;
@@ -196,7 +198,7 @@ OSStatus SummitSound(void *inRefCon, AudioUnitRenderActionFlags *ioActionFlags,
             int32 samplesToStream = MIN(inNumberFrames, samplesLeft);
 
             int16 *dst = soundBuffer;
-            int16 *src = (int16 *)((int32 *)channel->stream->data + channel->currentSample);
+            int16 *src = (int16 *)((int32 *)channel->stream.data + channel->currentSample);
 
             for (UInt32 i = 0; i < samplesToStream; i++) {
                 int32 oldValue0 = (int32)dst[0];

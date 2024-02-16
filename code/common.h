@@ -26,7 +26,7 @@ typedef double float64;
 typedef uint32_t bool32;
 
 #define ARRAY_LENGTH(array) (sizeof(array)/sizeof(array[0]))
-#define ASSERT(condition) if(!(condition)) { *(int *)0 = 0;} 
+#define ASSERT(condition) if(!(condition)) { *(volatile int *)0 = 0;} 
 
 #define KB(value) ((value)*1024LL)
 #define MB(value) (KB(value)*1024LL)

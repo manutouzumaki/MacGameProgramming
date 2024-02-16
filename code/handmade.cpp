@@ -5,21 +5,52 @@
 //  Created by Manuel Cabrerizo on 13/02/2024.
 //
 
-static MacSoundHandle testSound1Handle = -1;
 
-void GameInitialize(Memory memory, GameSound *sound) {
-    // TODO: ASSERT((memory.used + sizeof(GameState)) <= memory.size);
-    GameState *gameState = (GameState *)memory.data;
-    memory.used += sizeof(GameState);
+Arena ArenaCreate(Memory *memory, size_t size) {
+    ASSERT((memory->used + size) <= memory->size);
 
-    gameState->oliviaRodrigo = sound->Load("test", true, true);
-    gameState->missionCompleted = sound->Load("test1", false, false);
+    Arena arena;
+    arena.used = 0;
+    arena.size = size;
+    arena.base = memory->data + memory->used;
+
+    memory->used += size;
+
+    return arena;
+}
+
+void *ArenaPushSize(Arena *arena, size_t size) {
+    ASSERT((arena->used + size) <= arena->size);
+
+    void *data = arena->base + arena->used;
+
+    arena->used += size;
+
+    return data;
+}
+
+#define ArenaPushStruct(arena, type) (type *)ArenaPushSize(arena, sizeof(type))
+#define ArenaPushArray(arena, count, type) (type *)ArenaPushSize(arena, count * sizeof(type))
+
+
+void GameInitialize(Memory *memory, GameSound *sound) {
+    
+    ASSERT((memory->used + sizeof(GameState)) <= memory->size);
+    
+    GameState *gameState = (GameState *)memory->data;
+    memory->used += sizeof(GameState);
+
+
+    gameState->soundArena = ArenaCreate(memory, MB(40));
+
+    gameState->oliviaRodrigo = sound->Load(&gameState->soundArena, "test", true, true);
+    gameState->missionCompleted = sound->Load(&gameState->soundArena, "test1", false, false);
 
 }
 
-void GameUpdateAndRender(Memory memory, GameSound *sound, GameInput *input, GameBackBuffer *backBuffer) {
+void GameUpdateAndRender(Memory *memory, GameSound *sound, GameInput *input, GameBackBuffer *backBuffer) {
 
-    GameState *gameState = (GameState *)memory.data;
+    GameState *gameState = (GameState *)memory->data;
     
     if(input->controllers[0].left.endedDown) {
         gameState->xOffset += 5;

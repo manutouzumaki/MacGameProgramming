@@ -72,7 +72,7 @@ bool WriteWaveFile(const char *szFileName, void *pData, int32 nDataSize, int16 n
 }
 
 // TODO: pass an arena
-MacSoundStream LoadWavFile(const char *szFileName) {
+MacSoundStream LoadWavFile(Arena *arena, const char *szFileName) {
 
     FILE *file = fopen(szFileName, "rb");
     if(!file) {
@@ -86,7 +86,7 @@ MacSoundStream LoadWavFile(const char *szFileName) {
     // go back to the start of the file
     fseek(file, 0, SEEK_SET);
     // alloc the memory
-    uint8 *wavData = (uint8 *)malloc(fileSize + 1);
+    uint8 *wavData = (uint8 *)ArenaPushSize(arena, fileSize + 1);
     memset(wavData, 0, fileSize + 1);
     // store the content of the file
     fread(wavData, fileSize, 1, file);

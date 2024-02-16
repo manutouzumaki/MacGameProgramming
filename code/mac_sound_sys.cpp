@@ -177,7 +177,7 @@ void MacSoundSysRestart(MacSoundSystem *soundSys, MacSoundHandle handle) {
 }
 
 // CoreAudio Callback
-OSStatus SummitSound(void *inRefCon, AudioUnitRenderActionFlags *ioActionFlags,
+OSStatus CoreAudioCallback(void *inRefCon, AudioUnitRenderActionFlags *ioActionFlags,
                           const AudioTimeStamp *inTimeStamp, UInt32 inBusNumber,
                           UInt32 inNumberFrames, AudioBufferList *ioData) {
 
@@ -200,6 +200,7 @@ OSStatus SummitSound(void *inRefCon, AudioUnitRenderActionFlags *ioActionFlags,
             int16 *dst = soundBuffer;
             int16 *src = (int16 *)((int32 *)channel->stream.data + channel->currentSample);
 
+            // TODO: simd ...
             for (UInt32 i = 0; i < samplesToStream; i++) {
                 int32 oldValue0 = (int32)dst[0];
                 int32 oldValue1 = (int32)dst[1];
@@ -251,7 +252,7 @@ void InitializeCoreAudio(MacSoundSystem *soundSys, AudioUnit *audioUnit) {
     
     // init render callback struct for core audio
     AURenderCallbackStruct callbackStruct;
-    callbackStruct.inputProc = SummitSound;
+    callbackStruct.inputProc = CoreAudioCallback;
     callbackStruct.inputProcRefCon = (void *)soundSys;
     
     err = AudioUnitSetProperty(*audioUnit, kAudioUnitProperty_SetRenderCallback, kAudioUnitScope_Input,

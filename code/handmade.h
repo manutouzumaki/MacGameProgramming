@@ -7,6 +7,23 @@
 #ifndef handmade_h
 #define handmade_h
 
+struct Memory {
+    size_t size;
+    size_t used;
+    uint8 *data;
+};
+
+struct Arena {
+    size_t size;
+    size_t used;
+    uint8 *base;
+};
+
+Arena ArenaCreate(Memory *memory, size_t size);
+void *ArenaPushSize(Arena *arena, size_t size);
+#define ArenaPushStruct(arena, type) (type *)ArenaPushSize(arena, sizeof(type))
+#define ArenaPushArray(arena, count, type) (type *)ArenaPushSize(arena, count * sizeof(type))
+
 struct GameButton {
     int halfTransitionCount;
     bool endedDown;
@@ -35,12 +52,20 @@ struct GameInput {
 
 
 typedef int32 SoundHandle;
+
+struct Sound {
+    void *data;
+    size_t size;
+    SoundHandle handle;
+};
+
 struct GameSound {
-    SoundHandle (*Load) (const char *name, bool playing, bool loop);
-    void (*Remove) (SoundHandle *handle);
-    void (*Play) (SoundHandle handle);
-    void (*Pause) (SoundHandle handle);
-    void (*Restart) (SoundHandle handle);
+    // TODO: the Load function not necesary have to add a sound to a channel
+    Sound (*Load) (Arena *arena, const char *name, bool playing, bool loop);
+    void (*Remove) (Sound *sound);
+    void (*Play) (Sound sound);
+    void (*Pause) (Sound sound);
+    void (*Restart) (Sound sound);
 };
 
 struct GameBackBuffer {
@@ -50,24 +75,14 @@ struct GameBackBuffer {
     int pitch;
 };
 
-struct Memory {
-    size_t size;
-    size_t used;
-    uint8 *data;
-};
-
-struct Arena {
-    size_t size;
-    size_t used;
-    uint8 *base;
-};
-
 struct GameState {
     int32 xOffset;
     int32 yOffset;
 
-    SoundHandle oliviaRodrigo;
-    SoundHandle missionCompleted;
+    Arena soundArena;
+
+    Sound oliviaRodrigo;
+    Sound missionCompleted;
 };
 
 #endif

@@ -90,7 +90,7 @@ static const int32 GAME_MEMORY_SIZE = GB(1);
     gameBackBuffer.width = gRenderer.textureDesc.width;
     gameBackBuffer.height = gRenderer.textureDesc.height;
     gameBackBuffer.pitch = gRenderer.textureDesc.width * 4;
-    GameUpdateAndRender(gMemory, &gMacSoundSys.sound, gInput.currentInput, &gameBackBuffer);
+    GameUpdateAndRender(&gMemory, &gMacSoundSys.sound, gInput.currentInput, &gameBackBuffer);
 
     DrawSoftwareRenderer(&gRenderer, view);
     
@@ -148,35 +148,45 @@ static const int32 GAME_MEMORY_SIZE = GB(1);
 
 @end
 
-SoundHandle MacGameSoundLoad(const char *name, bool playing, bool loop) {
+Sound MacGameSoundLoad(Arena *arena, const char *name, bool playing, bool loop) {
     NSString *soundPath = [[NSBundle mainBundle] pathForResource: [NSString stringWithUTF8String:name] 
                                                           ofType: @"wav"];
     if(soundPath != nil) {
         // TODO: pass our memory to store this files
-        MacSoundStream stream = LoadWavFile([soundPath UTF8String]);
+        MacSoundStream stream = LoadWavFile(arena, [soundPath UTF8String]);
         MacSoundHandle soundHandle = MacSoundSysAdd(&gMacSoundSys, stream, playing, loop);
-        return (SoundHandle)soundHandle;
+        
+        Sound sound;
+        sound.data = stream.data;
+        sound.size = stream.size;
+        sound.handle = (SoundHandle)soundHandle;
+        return sound;
     }
 
-    return -1;
+    Sound null;
+    null.data = nullptr;
+    null.size = 0;
+    null.handle = -1;
+    return null;
 
 
 }
 
-void MacGameSoundRemove(SoundHandle *handle) {
-    MacSoundSysRemove(&gMacSoundSys, (MacSoundHandle *)handle);
+void MacGameSoundRemove(Sound *sound) {
+    MacSoundSysRemove(&gMacSoundSys, (MacSoundHandle *)&sound->handle);
+    sound->handle = -1;
 }
 
-void MacGameSoundPlay(SoundHandle handle) {
-    MacSoundSysPlay(&gMacSoundSys, (MacSoundHandle)handle);
+void MacGameSoundPlay(Sound sound) {
+    MacSoundSysPlay(&gMacSoundSys, (MacSoundHandle)sound.handle);
 }
 
-void MacGameSoundPause(SoundHandle handle) {
-    MacSoundSysPause(&gMacSoundSys, (MacSoundHandle)handle);
+void MacGameSoundPause(Sound sound) {
+    MacSoundSysPause(&gMacSoundSys, (MacSoundHandle)sound.handle);
 }
 
-void MacGameSoundRestart(SoundHandle handle) {
-    MacSoundSysRestart(&gMacSoundSys, (MacSoundHandle)handle);
+void MacGameSoundRestart(Sound sound) {
+    MacSoundSysRestart(&gMacSoundSys, (MacSoundHandle)sound.handle);
 }
 
 void MacAppicationInitialize(MacApp *app) {
@@ -257,6 +267,6 @@ void MacApplicationShutdown(MacApp *app) {
 int main(int argc, const char *argv[]) {
     NSLog(@"Handmade Mac is running!");
     MacAppicationInitialize(&gMacApp);
-    GameInitialize(gMemory, &gMacSoundSys.sound);
+    GameInitialize(&gMemory, &gMacSoundSys.sound);
     return NSApplicationMain(argc, argv);
 }

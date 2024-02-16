@@ -17,9 +17,10 @@
 #include "common.h"
 #include "handmade.h"
 
-#include "handmade.cpp"
 #include "mac_sound_sys.cpp"
+#include "handmade.cpp"
 
+// TODO: store the NSWindow, MTKView and MetalViewDelegate
 // TODO: memory managment
 // TODO: add mac prefixx to the function on this file ...
 // TODO: make structs for this globals
@@ -195,8 +196,6 @@ void ProcessInput(GameInput *input) {
     input->controllers[0].up.endedDown |= [keyboardInput buttonForKeyCode: GCKeyCodeUpArrow].pressed;
     input->controllers[0].down.endedDown |= [keyboardInput buttonForKeyCode: GCKeyCodeDownArrow].pressed;
     
-    int stopHere = 0;
-    
 }
 
 void InilializeSoftwareRenderer() {
@@ -317,6 +316,11 @@ bool InilializeMetal() {
     // Load the shaders
     NSError *error;
     NSString *libraryPath = [[NSBundle mainBundle] pathForResource: @"Shaders" ofType: @"metallib"];
+    if(libraryPath == nil) {
+        NSLog(@"Error load shader library");
+        return false;
+    }
+
     id<MTLLibrary> mtlLibrary = [gDevice newLibraryWithFile: libraryPath
                                                       error: &error];
     if(!mtlLibrary) {
@@ -361,7 +365,7 @@ OSStatus SummitSound(void *inRefCon, AudioUnitRenderActionFlags *ioActionFlags,
                           const AudioTimeStamp *inTimeStamp, UInt32 inBusNumber,
                           UInt32 inNumberFrames, AudioBufferList *ioData) {
     int16 *soundBuffer = (int16 *)ioData->mBuffers[0].mData;
-    //memset(soundBuffer, 0, sizeof(int32) * inNumberFrames);
+    memset(soundBuffer, 0, sizeof(int32) * inNumberFrames);
     
 // TODO: go through the actived channels in the system and play the if the are playing
     if(gMacSoundSys.channels == nullptr) return noErr;
@@ -376,10 +380,25 @@ OSStatus SummitSound(void *inRefCon, AudioUnitRenderActionFlags *ioActionFlags,
 
             int16 *dst = soundBuffer;
             int16 *src = (int16 *)((int32 *)channel->stream->data + channel->currentSample);
-            for (UInt32 i = 0; i < samplesToStream; i++)
-            {
-                *dst++ = *src++;
-                *dst++ = *src++;
+
+            for (UInt32 i = 0; i < samplesToStream; i++) {
+                int32 oldValue0 = (int32)dst[0];
+                int32 oldValue1 = (int32)dst[1];
+
+                int32 newValue0 = (int32)src[0];
+                int32 newValue1 = (int32)src[1];
+
+                int32 sum0 = oldValue0 + newValue0;
+                int32 sum1 = oldValue1 + newValue1;
+
+                dst[0] = (int16)MAX(MIN(sum0, 32767), -32768);
+                dst[1] = (int16)MAX(MIN(sum1, 32767), -32768);
+
+                dst++;
+                dst++;
+
+                src++;
+                src++;
             }
 
             if(channel->loop) {
@@ -637,8 +656,17 @@ int main(int argc, const char *argv[]) {
     // Load the song wav file in to the sound system
     // TODO: stream this file instead of load the entire file
     NSString *testSoundPath = [[NSBundle mainBundle] pathForResource: @"test" ofType: @"wav"];
-    MacSoundStream testSound = LoadWavFile([testSoundPath UTF8String]);
-    MacSoundHandle testSoundHandle = MacSoundSysAdd(&testSound, true, true);
+    if(testSoundPath != nil) {
+        MacSoundStream testSound = LoadWavFile([testSoundPath UTF8String]);
+        MacSoundHandle testSoundHandle = MacSoundSysAdd(&testSound, true, true);
+    }
+
+
+    NSString *testSoundPath1 = [[NSBundle mainBundle] pathForResource: @"test1" ofType: @"wav"];
+    if(testSoundPath1 != nil) {
+        MacSoundStream testSound1 = LoadWavFile([testSoundPath1 UTF8String]);
+        testSound1Handle = MacSoundSysAdd(&testSound1, false, false);
+    }
     
     // Initialize the audio unit
     err = AudioUnitInitialize(toneUnit);

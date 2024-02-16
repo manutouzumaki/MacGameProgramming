@@ -129,7 +129,7 @@ void MacSoundSysRemove(MacSoundHandle *outHandle) {
 
 }
 
-void MacSoundSysPlayStream(MacSoundHandle handle) {
+void MacSoundSysPlay(MacSoundHandle handle) {
     if(handle < 0 || handle >= gMacSoundSys.channelsCount) {
         NSLog(@"Invalid Sound Handle!!!");
         return;

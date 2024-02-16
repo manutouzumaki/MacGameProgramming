@@ -14,6 +14,7 @@ void GameInitialize() {
 }
 
 static int frequency = 261;
+static MacSoundHandle testSound1Handle = -1;
 
 void GameUpdateAndRender(GameInput *input, GameBackBuffer *backBuffer) {
     static int xOffset = 0;
@@ -34,12 +35,9 @@ void GameUpdateAndRender(GameInput *input, GameBackBuffer *backBuffer) {
         frequency -= 2;
     }
 
-    static bool flag = false;
     if(input->controllers[0].A.endedDown) {
-        if(!flag) {
-            flag = true;
-            //Add2SecSineWave();
-        }
+        MacSoundSysRestart(testSound1Handle);
+        MacSoundSysPlay(testSound1Handle);
     }
     
 

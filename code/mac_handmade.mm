@@ -199,7 +199,7 @@ void MacAppicationInitialize(MacApp *app) {
 
     NSRect windowRect =  NSMakeRect(0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT);
     app->window = [[MacWindow alloc] initWithContentRect: windowRect
-                                               styleMask: NSWindowStyleMaskTitled | NSWindowStyleMaskClosable // | NSWindowStyleMaskResizable
+                                               styleMask: NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskResizable
                                                  backing: NSBackingStoreBuffered
                                                    defer: NO];
 

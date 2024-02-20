@@ -104,6 +104,13 @@ struct AABB {
     Vec2 max; 
 };
 
+
+struct CollisionPacket {
+    int32 x;
+    int32 y;
+    float32 t;
+};
+
 struct GameState {
 
     float32 heroX;
@@ -121,6 +128,9 @@ struct GameState {
     uint32 *tiles;
     int32 tilesCountX;
     int32 tilesCountY;
+
+    CollisionPacket frameCollisions[1024];
+    int32 frameCollisionCount;
 
 };
 

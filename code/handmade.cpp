@@ -119,47 +119,61 @@ void DrawRectTexture(GameBackBuffer *buffer, int32 x, int32 y, int32 width, int3
 
 }
 
-Vec2 ClosestPtPointAABB(Vec2 p, AABB b) {
-    Vec2 q = Vec2();
-    for(int32 i = 0; i < 2; ++i) {
-        float32 v = p[i];
-        if(v < b.min[i]) v = b.min[i];
-        if(v > b.max[i]) v = b.max[i];
-        q.v[i] = v;
-    }
-    return q;
+void Swap(float32 &a, float32 &b) {
+    float32 tmp = a;
+    a = b;
+    b = tmp;
 }
 
-int32 IntersectRayAABB(Vec2 p, Vec2 d, AABB a, float32 &tmin) {
-    tmin = 0.0f;// set to -FLT_MAX to get first hit on line
-    float32 tmax = FLT_MAX;
-
-    for(int32 i = 0; i < 2; i++) {
-        if(fabsf(d[i]) < FLT_EPSILON) {
-            // ray is parallel to the slab. no hit is the origin is not inside
-            if(p[i] < a.min[i] || p[i] > a.max[i]) return 0;
-        }
-        else {
-            // Compute intersection t of a ray with near and far planof slab
-            float32 ood = 1.0f / d[i];
-            float32 t1 = (a.min[i] - p[i]) * ood;
-            float32 t2 = (a.max[i] - p[i]) * ood;
-            if(t1 > t2) {
-                float32 tmp = t1;
-                t1 = t2;
-                t2 = tmp;
-            }
-            tmin = MAX(tmin, t1);
-            tmax = MIN(tmax, t2);
-
-            if(tmin > tmax) return 0;
-        }
-    }
-    return 1;
+void Swap(int32 &a, int32 &b) {
+    int32 tmp = a;
+    a = b;
+    b = tmp;
 }
 
 
-static const float32 MetersToPixels = 16*4;
+bool RayVsAABB(Vec2 origin, Vec2 dir, AABB rect, Vec2 &contactPoint, Vec2 &contactNorm, float32 &tHitNear) {
+
+    float32 tNearX = (rect.min.x - origin.x) / dir.x;
+    float32 tFarX  = (rect.max.x - origin.x) / dir.x; 
+
+    float32 tNearY = (rect.min.y - origin.y) / dir.y;
+    float32 tFarY  = (rect.max.y - origin.y) / dir.y;
+
+    if(isnan(tFarY) || isnan(tFarX)) return false;
+    if(isnan(tNearY) || isnan(tNearX)) return false;
+
+    if(tNearX > tFarX) Swap(tNearX, tFarX);
+    if(tNearY > tFarY) Swap(tNearY, tFarY);
+
+    if(tNearX > tFarY || tNearY > tFarX) return false;
+
+    tHitNear = MAX(tNearX, tNearY);
+    float32 tHitMax = MIN(tFarX, tFarY);
+    if(tHitMax < 0) return false;
+
+    contactPoint.x = origin.x + tHitNear * dir.x;
+    contactPoint.y = origin.y + tHitNear * dir.y;
+
+    if(tNearX > tNearY) {
+        if(dir.x < 0) 
+            contactNorm = Vec2(1, 0);
+        else
+            contactNorm = Vec2(-1, 0);
+    }
+    else if(tNearX < tNearY) {
+        if(dir.y < 0)
+            contactNorm = Vec2(0, 1);
+        else
+            contactNorm = Vec2(0, -1);
+    }
+
+    return true;
+
+}
+
+
+static const float32 MetersToPixels = 32;
 static const float32 PixelsToMeters = 1.0f / MetersToPixels;
 static const int32 SPRITE_SIZE = 1;
 
@@ -255,50 +269,81 @@ void GameUpdateAndRender(Memory *memory, GameSound *sound, GameInput *input, Gam
     float32 centerY = gameState->heroY + SPRITE_SIZE;
 
     // check simple collisions
+    //TODO: olny check the posible tiles, not the entire tilemap
+    gameState->frameCollisionCount = 0;
     for(int32 y = 0; y < gameState->tilesCountY; y++) {
         for(int32 x = 0; x < gameState->tilesCountX; x++) {
-
-            if(gameState->tiles[y * gameState->tilesCountX + x] == 1) {
-
-                AABB aabb;
-                aabb.min = Vec2(x, y);
-                aabb.max = Vec2(x + SPRITE_SIZE, y + SPRITE_SIZE); 
-
+            
+            int32 tileIndex = y * gameState->tilesCountX + x;
+            if(gameState->tiles[tileIndex] == 1) {
                 AABB aabbOuter;
-                aabbOuter.min = Vec2(x - 0.25f, y - 0.25f);
-                aabbOuter.max = Vec2(x + SPRITE_SIZE + 0.25f, y + SPRITE_SIZE + 0.25f); 
-                
-                float32 t = -1.0f;
-
-                float32 len = sqrtf(ddpX * ddpX + ddpY * ddpY);
-                if(IntersectRayAABB(Vec2(centerX, centerY), Vec2(ddpX, ddpY), aabbOuter, t) && t < len) {
-                    Vec2 q = Vec2(
-                        centerX + ddpX * t,
-                        centerY + ddpY * t
-                    );
-
-                    Vec2 closest = ClosestPtPointAABB(q, aabb);
-                    float32 diffX = q.x - closest.x;
-                    float32 diffY = q.y - closest.y;
-                    float32 invLen = 1.0f / sqrtf(diffX * diffX + diffY * diffY);       
-                    
-                    Vec2 normal = Vec2(
-                        diffX * invLen,      
-                        diffY * invLen      
-                    );
-
-                    centerX = (q.x + normal.x * 0.001f);
-                    centerY = (q.y + normal.y * 0.001f);
-
-                    float32 tRest = 1.0f - t;
-                    ddpX *= tRest; 
-                    ddpY *= tRest;
-                    ddpX += (normal.x * fabsf(ddpX));
-                    ddpY += (normal.y * fabsf(ddpY));
+                aabbOuter.min = Vec2(x - 0.45f, y - 0.45f);
+                aabbOuter.max = Vec2(x + SPRITE_SIZE + 0.45f, y + SPRITE_SIZE + 0.45f); 
+               
+                Vec2 contactPoint;
+                Vec2 contactNorm;
+                float32 t = -1.0f; 
+                if(RayVsAABB(Vec2(centerX, centerY), Vec2(ddpX, ddpY), aabbOuter, contactPoint, contactNorm, t) && t <= 1.0f) {
+                    CollisionPacket collision;
+                    collision.x = x;
+                    collision.y = y;
+                    collision.t = t;
+                    ASSERT((gameState->frameCollisionCount + 1) <= 1024);
+                    gameState->frameCollisions[gameState->frameCollisionCount++] = collision;
                 }
             }
 
         }
+    }
+
+    // sort the collision base in their time t
+    {
+        int32 i, j;
+        bool swapped;
+        for (i = 0; i < gameState->frameCollisionCount - 1; i++) {
+            swapped = false;
+            for (j = 0; j < gameState->frameCollisionCount - i - 1; j++) {
+                if (gameState->frameCollisions[j].t > gameState->frameCollisions[j + 1].t) {
+
+                    CollisionPacket tmp = gameState->frameCollisions[j];
+                    gameState->frameCollisions[j] = gameState->frameCollisions[j + 1];
+                    gameState->frameCollisions[j + 1] = tmp;
+
+                    swapped = true;
+                }
+            }
+     
+            // If no two elements were swapped by inner loop,
+            // then break
+            if (swapped == false)
+                break;
+        }
+    }
+    
+
+    for(int32 i = 0; i < gameState->frameCollisionCount; i++) {
+
+        CollisionPacket collision = gameState->frameCollisions[i];
+
+        AABB aabbOuter;
+        aabbOuter.min = Vec2(collision.x - 0.45f, collision.y - 0.45f);
+        aabbOuter.max = Vec2(collision.x + SPRITE_SIZE + 0.45f, collision.y + SPRITE_SIZE + 0.45f);
+
+        Vec2 contactPoint;
+        Vec2 contactNorm;
+        float32 t = -1.0f; 
+        if(RayVsAABB(Vec2(centerX, centerY), Vec2(ddpX, ddpY), aabbOuter, contactPoint, contactNorm, t) && t <= 1.0f) {
+
+            centerX = (contactPoint.x + contactNorm.x * 0.0001f);
+            centerY = (contactPoint.y + contactNorm.y * 0.0001f);
+
+            float32 tRest = 1.0f - t;
+            ddpX *= tRest; 
+            ddpY *= tRest;
+            ddpX += (contactNorm.x * fabsf(ddpX));
+            ddpY += (contactNorm.y * fabsf(ddpY));
+        }
+
     }
 
     gameState->heroX = centerX - SPRITE_SIZE*0.5f;

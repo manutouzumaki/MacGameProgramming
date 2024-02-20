@@ -71,7 +71,7 @@ bool WriteWaveFile(const char *szFileName, void *pData, int32 nDataSize, int16 n
 	return true;
 }
 
-// TODO: pass an arena
+// TODO: stream the audio file ...
 MacSoundStream LoadWavFile(Arena *arena, const char *szFileName) {
 
     FILE *file = fopen(szFileName, "rb");

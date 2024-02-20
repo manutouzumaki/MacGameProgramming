@@ -4,6 +4,9 @@
 //
 //  Created by Manuel Cabrerizo on 16/02/2024.
 //
+//
+static const NSUInteger MaxFramesInFlight = 3;
+
 struct MacRenderer {
     // variables for initialize  metal
     id<MTLDevice> device;
@@ -11,12 +14,16 @@ struct MacRenderer {
     id<MTLRenderPipelineState> renderPipelineState;
 
     // variables for the software renderer
-    id<MTLTexture> texture;
+    id<MTLTexture> textures[MaxFramesInFlight];
     MTLTextureDescriptor *textureDesc;
     id<MTLBuffer> vertices;
     NSUInteger numVertices;
     uint32 *backBuffer;
     size_t backBufferSize;
+
+    // CPU - GPU Synchronization
+    dispatch_semaphore_t inFlightSemaphore;
+    NSUInteger currentTexture;
 };
 
 void InilializeSoftwareRenderer(MacRenderer *renderer, int32 windowWidth, int32 windowHeight) {
@@ -61,12 +68,23 @@ void InilializeSoftwareRenderer(MacRenderer *renderer, int32 windowWidth, int32 
     memset(renderer->backBuffer, 0, renderer->backBufferSize);
 
     // Create the texture from the device by using the descriptor
-    renderer->texture = [renderer->device newTextureWithDescriptor:renderer->textureDesc];
+    for(int32 i = 0; i < MaxFramesInFlight; i++) {
+        renderer->textures[i] = [renderer->device newTextureWithDescriptor:renderer->textureDesc];
+    }
 }
 
 void DrawSoftwareRenderer(MacRenderer *renderer, MTKView *view) {
+    
+    // Wait to ensure only `MaxFramesInFlight` number of frames are getting processed
+    // by any stage in the Metal pipeline (CPU, GPU, Metal, Drivers, etc.).
+    dispatch_semaphore_wait(renderer->inFlightSemaphore, DISPATCH_TIME_FOREVER);
+
+        // Iterate through the Metal buffers, and cycle back to the first when you've written to the last.
+    renderer->currentTexture = (renderer->currentTexture + 1) % MaxFramesInFlight;
+    
+    
     // Update the backBuffer
-    NSUInteger bytesPerRow = 4 * renderer->texture.width;
+    NSUInteger bytesPerRow = 4 * renderer->textureDesc.width;
     
     MTLRegion region = {
         { 0, 0, 0 }, // MTLOrigin
@@ -74,10 +92,11 @@ void DrawSoftwareRenderer(MacRenderer *renderer, MTKView *view) {
          renderer->textureDesc.height,
          1} // MTLSize
     };
-    [renderer->texture replaceRegion:region
-                         mipmapLevel:0
-                           withBytes: renderer->backBuffer
-                         bytesPerRow:bytesPerRow];
+    [renderer->textures[renderer->currentTexture] replaceRegion:region
+                                                    mipmapLevel:0
+                                                      withBytes: renderer->backBuffer
+                                                    bytesPerRow:bytesPerRow];
+
     
     // Renderer
     id<MTLCommandBuffer> commandBuffer = [renderer->commandQueue commandBuffer];
@@ -96,7 +115,7 @@ void DrawSoftwareRenderer(MacRenderer *renderer, MTKView *view) {
                                 offset:0
                               atIndex:AAPLVertexInputIndexVertices];
         
-        [renderEncoder setFragmentTexture:renderer->texture
+        [renderEncoder setFragmentTexture:renderer->textures[renderer->currentTexture]
                                   atIndex:AAPLTextureIndexBaseColor];
         
         // Draw the triangles.
@@ -109,13 +128,27 @@ void DrawSoftwareRenderer(MacRenderer *renderer, MTKView *view) {
         // Schedule a present once the framebuffer is complete using the current drawable
         [commandBuffer presentDrawable:view.currentDrawable];
     }
+    // Add a completion handler that signals `_inFlightSemaphore` when Metal and the GPU have fully
+    // finished processing the commands that were encoded for this frame.
+    // This completion indicates that the dynamic buffers that were written-to in this frame, are no
+    // longer needed by Metal and the GPU; therefore, the CPU can overwrite the buffer contents
+    // without corrupting any rendering operations.
+    __block dispatch_semaphore_t block_semaphore = renderer->inFlightSemaphore;
+    [commandBuffer addCompletedHandler:^(id<MTLCommandBuffer> buffer)
+     {
+         dispatch_semaphore_signal(block_semaphore);
+     }];
+
+
     // Finalize rendering here & push the command buffer to the GPU
     [commandBuffer commit];
 }
 
 void ShutdownSoftwareRenderer(MacRenderer *renderer) {
     [renderer->textureDesc dealloc];
-    [renderer->texture release];
+    for(int32 i = 0; i < MaxFramesInFlight; i++) {
+        [renderer->textures[i] release];
+    }
     [renderer->vertices release];
     if(renderer->backBuffer) {
         munmap(renderer->backBuffer, renderer->backBufferSize);
@@ -164,6 +197,9 @@ bool InilializeMetal(MacRenderer *renderer) {
     [vertShader release];
     [fragShader release];
     [mtlLibrary release];
+
+    renderer->inFlightSemaphore = dispatch_semaphore_create(MaxFramesInFlight);
+    renderer->currentTexture = 0;
     
     return true;
 }

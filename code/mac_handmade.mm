@@ -148,6 +148,12 @@ static const int32 GAME_MEMORY_SIZE = GB(1);
 
 @end
 
+const char *MacGetPath(const char *name, const char *ext) {
+    NSString *path = [[NSBundle mainBundle] pathForResource: [NSString stringWithUTF8String:name] 
+                                                     ofType: [NSString stringWithUTF8String:ext]];
+    return [path UTF8String];
+}
+
 Sound MacGameSoundLoad(Arena *arena, const char *name, bool playing, bool loop) {
     NSString *soundPath = [[NSBundle mainBundle] pathForResource: [NSString stringWithUTF8String:name] 
                                                           ofType: @"wav"];
@@ -193,7 +199,7 @@ void MacAppicationInitialize(MacApp *app) {
 
     NSRect windowRect =  NSMakeRect(0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT);
     app->window = [[MacWindow alloc] initWithContentRect: windowRect
-                                               styleMask: NSWindowStyleMaskTitled | NSWindowStyleMaskClosable
+                                               styleMask: NSWindowStyleMaskTitled | NSWindowStyleMaskClosable // | NSWindowStyleMaskResizable
                                                  backing: NSBackingStoreBuffered
                                                    defer: NO];
 
@@ -267,6 +273,9 @@ void MacApplicationShutdown(MacApp *app) {
 int main(int argc, const char *argv[]) {
     NSLog(@"Handmade Mac is running!");
     MacAppicationInitialize(&gMacApp);
-    GameInitialize(&gMemory, &gMacSoundSys.sound);
+
+    gInput.currentInput->GetPath = MacGetPath;
+
+    GameInitialize(&gMemory, &gMacSoundSys.sound, gInput.currentInput);
     return NSApplicationMain(argc, argv);
 }

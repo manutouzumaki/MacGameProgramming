@@ -5,7 +5,7 @@ fi
 xcrun -sdk macosx metal -gline-tables-only -MO -g -c ../assets/shaders/Shaders.metal -o ../build/Shaders.air
 xcrun -sdk macosx metallib ../build/Shaders.air -o ../build/Shaders.metallib
 
-clang -g -lstdc++  -framework Appkit -framework Metal -framework MetalKit -framework GameController -framework AudioToolbox -o ../build/handmade mac_handmade.mm
+clang -g -DHANDMADE_DEBUG  -lstdc++  -framework Appkit -framework Metal -framework MetalKit -framework GameController -framework AudioToolbox -o ../build/handmade mac_handmade.mm
 
 
 echo HandmadeMac compiled

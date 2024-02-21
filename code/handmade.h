@@ -104,10 +104,25 @@ struct AABB {
     Vec2 max; 
 };
 
+enum TileCollisionType {
+    TILE_COLLISION_TYPE_NO_COLLISION,
+    TILE_COLLISION_TYPE_16x16,
+    TILE_COLLISION_TYPE_8x8_L_U,
+    TILE_COLLISION_TYPE_8x8_R_U,
+    TILE_COLLISION_TYPE_8x8_L_D,
+    TILE_COLLISION_TYPE_8x8_R_D,
+    TILE_COLLISION_TYPE_4x4_L_U,
+    TILE_COLLISION_TYPE_4x4_R_U,
+    TILE_COLLISION_TYPE_4x4_L_D,
+    TILE_COLLISION_TYPE_4x4_R_D
+};
 
 struct CollisionPacket {
-    int32 x;
-    int32 y;
+    TileCollisionType type;
+    float32 x;
+    float32 y;
+    float32 sizeX;
+    float32 sizeY;
     float32 t;
 };
 

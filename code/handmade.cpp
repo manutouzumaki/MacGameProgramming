@@ -9,6 +9,7 @@
 #include "stb_image.h"
 
 
+
 Arena ArenaCreate(Memory *memory, size_t size) {
     ASSERT((memory->used + size) <= memory->size);
 
@@ -57,9 +58,33 @@ Texture LoadTexture(Arena *arena, char const *path) {
 }
 
 
+#ifdef HANDMADE_DEBUG
+void DrawDebugRect_(GameBackBuffer *buffer, int32 x, int32 y, int32 width, int32 height, uint32 color) {
+    int32 minX = MAX(x, 0);
+    int32 minY = MAX(y, 0);
+    int32 maxX = MIN(x + width, buffer->width);
+    int32 maxY = MIN(y + height, buffer->height);
+
+    uint32 *pixels = (uint32 *)buffer->data;
+    for(int32 x = minX; x < maxX; x++) {
+        if(minY < maxY) {
+            pixels[minY * buffer->width + x] = color; 
+            pixels[(maxY - 1) * buffer->width + x] = color; 
+        }
+    }
+    for(int32 y = minY; y < maxY; y++) {
+        if(minX < maxX) {
+            pixels[y * buffer->width + minX] = color; 
+            pixels[y * buffer->width + (maxX - 1)] = color; 
+        }
+    }
+}
+#define DrawDebugRect(buffer, x, y, width, height, color) DrawDebugRect_(buffer, x, y, width, height, color)
+#else
+#define DrawDebugRect(buffer, x, y, width, height, color)
+#endif
 
 void DrawRect(GameBackBuffer *buffer, int32 x, int32 y, int32 width, int32 height, uint32 color) {
-
     int32 minX = MAX(x, 0);
     int32 minY = MAX(y, 0);
     int32 maxX = MIN(x + width, buffer->width);
@@ -71,7 +96,6 @@ void DrawRect(GameBackBuffer *buffer, int32 x, int32 y, int32 width, int32 heigh
             pixels[y * buffer->width + x] = color; 
         }
     }
-
 }
 
 // TODO: map the textur to the rect
@@ -131,6 +155,11 @@ void Swap(int32 &a, int32 &b) {
     b = tmp;
 }
 
+bool AABBVsAABB(AABB a, AABB b) {
+    if(a.max.x < b.min.x || a.min.x > b.max.x) return false;
+    if(a.max.y < b.min.y || a.min.y > b.max.y) return false;
+    return true;
+}
 
 bool RayVsAABB(Vec2 origin, Vec2 dir, AABB rect, Vec2 &contactPoint, Vec2 &contactNorm, float32 &tHitNear) {
 
@@ -172,11 +201,141 @@ bool RayVsAABB(Vec2 origin, Vec2 dir, AABB rect, Vec2 &contactPoint, Vec2 &conta
 
 }
 
-
 static const float32 MetersToPixels = 32;
 static const float32 PixelsToMeters = 1.0f / MetersToPixels;
 static const int32 SPRITE_SIZE = 1;
 
+// TODO: link to the pass collision adjusment
+void CollisionAdjusment(GameBackBuffer *backBuffer, AABB aabbOther, uint32 &color, float32 &centerX, float32 &centerY, float32 inputX, float32 inputY) {
+    float32 buttonPressed = inputX * inputX + inputY * inputY;
+    if(buttonPressed > 0.0f) {
+        
+        AABB sensorL;
+        AABB sensorM;
+        AABB sensorR;
+
+        if(inputX != 0.0f && inputY != 0.0f) {
+        }
+        else if(inputX > 0.0f) {
+        
+        }
+        else if(inputX < 0.0f) {
+            float32 size = 0.9f;
+            float32 LRwidth = 0.25f * size;
+            float32 Mwidth = 0.4f * size;
+            float32 height = 0.125f * size;
+
+            float32 sensorX = centerX - (size*0.5f) - (height*0.5f);
+            float32 sensorY = centerY;
+            sensorM.min = Vec2(sensorX - height * 0.5f, sensorY - Mwidth * 0.5f);
+            sensorM.max = Vec2(sensorX + height * 0.5f, sensorY + Mwidth * 0.5f); 
+
+            sensorX = centerX - (size*0.5f) - (height * 0.5f);
+            sensorY = centerY - (size*0.5f) + (LRwidth * 0.5f);
+            sensorL.min = Vec2(sensorX - height * 0.5f, sensorY - LRwidth * 0.5f);
+            sensorL.max = Vec2(sensorX + height * 0.5f, sensorY + LRwidth * 0.5f);
+              
+            sensorX = centerX - (size*0.5f) - (height * 0.5f);
+            sensorY = centerY + (size*0.5f) - (LRwidth * 0.5f);
+            sensorR.min = Vec2(sensorX - height * 0.5f, sensorY - LRwidth * 0.5f);
+            sensorR.max = Vec2(sensorX + height * 0.5f, sensorY + LRwidth * 0.5f);
+
+            bool mHit = AABBVsAABB(sensorM, aabbOther);
+            bool lHit = AABBVsAABB(sensorL, aabbOther);
+            bool rHit = AABBVsAABB(sensorR, aabbOther);
+
+            if(mHit == false) {
+                if(lHit) {
+                    centerY += 1.0f * 0.075f;
+                }
+                if(rHit) { 
+                    centerY -= 1.0f * 0.075f;
+                }
+            }
+
+            DrawDebugRect(backBuffer,
+                          sensorM.min.x*MetersToPixels,
+                          sensorM.min.y*MetersToPixels,
+                          (sensorM.max.x-sensorM.min.x)*MetersToPixels,
+                          (sensorM.max.y-sensorM.min.y)*MetersToPixels,
+                          color);
+            DrawDebugRect(backBuffer,
+                          sensorL.min.x*MetersToPixels,
+                          sensorL.min.y*MetersToPixels,
+                          (sensorL.max.x-sensorL.min.x)*MetersToPixels,
+                          (sensorL.max.y-sensorL.min.y)*MetersToPixels,
+                          0xFFFF00FF);
+            DrawDebugRect(backBuffer,
+                          sensorR.min.x*MetersToPixels,
+                          sensorR.min.y*MetersToPixels,
+                          (sensorR.max.x-sensorR.min.x)*MetersToPixels,
+                          (sensorR.max.y-sensorR.min.y)*MetersToPixels,
+                          0xFFFF00FF);
+        }
+        else if(inputY > 0.0f) {
+        
+        }
+        else if(inputY < 0.0f) {
+
+            float32 size = 0.9f;
+            float32 LRwidth = 0.25f * size;
+            float32 Mwidth = 0.4f * size;
+            float32 height = 0.125f * size;
+
+            float32 sensorX = centerX;
+            float32 sensorY = centerY - (size*0.5f) - (height*0.5f);
+            sensorM.min = Vec2(sensorX - Mwidth * 0.5f, sensorY - height * 0.5f);
+            sensorM.max = Vec2(sensorX + Mwidth * 0.5f, sensorY + height * 0.5f); 
+
+            sensorX = centerX - (size*0.5f) + (LRwidth * 0.5f);
+            sensorY = centerY - (size*0.5f) - (height * 0.5f);
+            sensorL.min = Vec2(sensorX - LRwidth * 0.5f, sensorY - height * 0.5f);
+            sensorL.max = Vec2(sensorX + LRwidth * 0.5f, sensorY + height * 0.5f);
+              
+            sensorX = centerX + (size*0.5f) - (LRwidth * 0.5f);
+            sensorY = centerY - (size*0.5f) - (height * 0.5f);
+            sensorR.min = Vec2(sensorX - LRwidth * 0.5f, sensorY - height * 0.5f);
+            sensorR.max = Vec2(sensorX + LRwidth * 0.5f, sensorY + height * 0.5f);
+
+            bool mHit = AABBVsAABB(sensorM, aabbOther);
+            bool lHit = AABBVsAABB(sensorL, aabbOther);
+            bool rHit = AABBVsAABB(sensorR, aabbOther);
+
+            
+            if(mHit == false) {
+                if(lHit) {
+                    centerX += 1.0f * 0.075f;
+                }
+                if(rHit) { 
+                    centerX -= 1.0f * 0.075f;
+                }
+            }
+            
+
+            DrawDebugRect(backBuffer,
+                          sensorM.min.x*MetersToPixels,
+                          sensorM.min.y*MetersToPixels,
+                          (sensorM.max.x-sensorM.min.x)*MetersToPixels,
+                          (sensorM.max.y-sensorM.min.y)*MetersToPixels,
+                          color);
+            DrawDebugRect(backBuffer,
+                          sensorL.min.x*MetersToPixels,
+                          sensorL.min.y*MetersToPixels,
+                          (sensorL.max.x-sensorL.min.x)*MetersToPixels,
+                          (sensorL.max.y-sensorL.min.y)*MetersToPixels,
+                          0xFFFF00FF);
+            DrawDebugRect(backBuffer,
+                          sensorR.min.x*MetersToPixels,
+                          sensorR.min.y*MetersToPixels,
+                          (sensorR.max.x-sensorR.min.x)*MetersToPixels,
+                          (sensorR.max.y-sensorR.min.y)*MetersToPixels,
+                          0xFFFF00FF);
+        
+        }
+
+
+    }
+}
 
 void GameInitialize(Memory *memory, GameSound *sound, GameInput *input) {
     
@@ -203,18 +362,18 @@ void GameInitialize(Memory *memory, GameSound *sound, GameInput *input) {
     uint32 tempTiles[16*16] = {
         1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
         0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 1,
-        0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 1,
-        0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 0, 1, 0, 1,
-        0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1,
-        1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1,
-        1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1,
+        0, 0, 0, 1, 1, 1, 1, TILE_COLLISION_TYPE_4x4_R_D, 0, 0, 1, 1, 0, 0, 0, 1,
+        0, 0, 0, 1, 1, 1, TILE_COLLISION_TYPE_4x4_R_D, 0, 0, 0, 1, 1, 0, 1, 0, 1,
+        0, 0, 0, 1, 1, TILE_COLLISION_TYPE_4x4_R_D, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1,
+        1, 0, 0, 1, TILE_COLLISION_TYPE_4x4_R_D, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1,
+        1, 0, 0, TILE_COLLISION_TYPE_4x4_R_D, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1,
         1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1,
         1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 1,
         1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1,
         1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1,
-        1, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1,
-        1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1,
-        1, 0, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1,
+        1, 0, 1, 1, 1, TILE_COLLISION_TYPE_8x8_R_U, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1,
+        1, 0, 0, 1, 1, 1, TILE_COLLISION_TYPE_8x8_R_U, 0, 0, 1, 0, 0, 1, 1, 1, 1,
+        1, 0, 0, 1, 1, 1, 1, TILE_COLLISION_TYPE_8x8_R_U, 0, 1, 0, 1, 1, 1, 1, 1,
         1, 0, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1,
         1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
     };
@@ -242,17 +401,23 @@ void GameUpdateAndRender(Memory *memory, GameSound *sound, GameInput *input, Gam
      
     float32 ddpX = 0;
     float32 ddpY = 0;
+    float32 inputX = 0;
+    float32 inputY = 0;
     if(input->controllers[0].left.endedDown) {
         ddpX -= 1;
+        inputX -= 1;
     }
     if(input->controllers[0].right.endedDown) {
         ddpX += 1;
+        inputX += 1;
     }
     if(input->controllers[0].up.endedDown) {
         ddpY -= 1;
+        inputY -= 1;
     }
     if(input->controllers[0].down.endedDown) {
         ddpY += 1;
+        inputY += 1;
     }
 
     float32 lenSq = ddpX * ddpX + ddpY * ddpY;
@@ -269,13 +434,33 @@ void GameUpdateAndRender(Memory *memory, GameSound *sound, GameInput *input, Gam
     float32 centerY = gameState->heroY + SPRITE_SIZE;
 
     // check simple collisions
-    //TODO: olny check the posible tiles, not the entire tilemap
     gameState->frameCollisionCount = 0;
-    for(int32 y = 0; y < gameState->tilesCountY; y++) {
-        for(int32 x = 0; x < gameState->tilesCountX; x++) {
+    
+    //TODO: olny check the posible tiles, not the entire tilemap
+    AABB oldP;
+    oldP.min = Vec2(centerX - 0.45f, centerY - 0.45f); 
+    oldP.max = Vec2(centerX + 0.45f, centerY + 0.45f); 
+
+    AABB newP;
+    newP.min = Vec2(centerX + ddpX - 0.45f, centerY + ddpY - 0.45f); 
+    newP.max = Vec2(centerX + ddpX + 0.45f, centerY + ddpY + 0.45f); 
+
+    int32 minX = (int32)floorf(MIN(oldP.min.x, newP.min.x));
+    int32 minY = (int32)floorf(MIN(oldP.min.y, newP.min.y));
+    int32 maxX = (int32)ceilf(MAX(oldP.max.x, newP.max.x));
+    int32 maxY = (int32)ceilf(MAX(oldP.max.y, newP.max.y)); 
+
+    // TODO: clamp to fall inside the tilemap
+    minX = MAX(minX, 0);
+    minY = MAX(minY, 0);
+    maxX = MIN(maxX, gameState->tilesCountX);
+    maxY = MIN(maxY, gameState->tilesCountY);
+    
+    for(int32 y = minY; y < maxY; y++) {
+        for(int32 x = minX; x < maxX; x++) {
             
-            int32 tileIndex = y * gameState->tilesCountX + x;
-            if(gameState->tiles[tileIndex] == 1) {
+            uint32 tile = gameState->tiles[y * gameState->tilesCountX + x];
+            if(tile == TILE_COLLISION_TYPE_16x16) {
                 AABB aabbOuter;
                 aabbOuter.min = Vec2(x - 0.45f, y - 0.45f);
                 aabbOuter.max = Vec2(x + SPRITE_SIZE + 0.45f, y + SPRITE_SIZE + 0.45f); 
@@ -285,13 +470,89 @@ void GameUpdateAndRender(Memory *memory, GameSound *sound, GameInput *input, Gam
                 float32 t = -1.0f; 
                 if(RayVsAABB(Vec2(centerX, centerY), Vec2(ddpX, ddpY), aabbOuter, contactPoint, contactNorm, t) && t <= 1.0f) {
                     CollisionPacket collision;
+                    collision.type = TILE_COLLISION_TYPE_16x16;
                     collision.x = x;
                     collision.y = y;
+                    collision.sizeX = SPRITE_SIZE;
+                    collision.sizeY = SPRITE_SIZE;
                     collision.t = t;
                     ASSERT((gameState->frameCollisionCount + 1) <= 1024);
                     gameState->frameCollisions[gameState->frameCollisionCount++] = collision;
                 }
             }
+            if(tile == TILE_COLLISION_TYPE_8x8_R_U) {
+                
+                float32 posX = x;
+                float32 posY = y;
+                float32 sizeX = SPRITE_SIZE*0.5f;
+                float32 sizeY = SPRITE_SIZE*0.5f;
+                 
+                for(int32 j = 0; j < 2; j++) {
+                    for(int32 i = 0; i < j + 1; i++) {                
+
+                        AABB aabbOuter;
+                        aabbOuter.min = Vec2(posX - 0.45f, posY - 0.45f);
+                        aabbOuter.max = Vec2(posX + sizeX + 0.45f, posY + sizeY + 0.45f); 
+                       
+                        Vec2 contactPoint;
+                        Vec2 contactNorm;
+                        float32 t = -1.0f; 
+                        if(RayVsAABB(Vec2(centerX, centerY), Vec2(ddpX, ddpY), aabbOuter, contactPoint, contactNorm, t) && t <= 1.0f) {
+                            CollisionPacket collision;
+                            collision.type = TILE_COLLISION_TYPE_8x8_R_U;
+                            collision.x = posX;
+                            collision.y = posY;
+                            collision.sizeX = sizeX;
+                            collision.sizeY = sizeY;
+                            collision.t = t;
+                            ASSERT((gameState->frameCollisionCount + 1) <= 1024);
+                            gameState->frameCollisions[gameState->frameCollisionCount++] = collision;
+                        }
+
+                        posX += sizeX;
+                    }
+                    posX = x;
+                    posY += sizeY;
+                }
+
+            }
+            if(tile == TILE_COLLISION_TYPE_4x4_R_D) {
+                float32 posX = x;
+                float32 posY = y;
+                float32 sizeX = SPRITE_SIZE*0.25f;
+                float32 sizeY = SPRITE_SIZE*0.25f;
+                
+                for(int32 j = 0; j < 4; j++) {
+                    for(int32 i = 0; i < 4 - j; i++) {                
+
+                        AABB aabbOuter;
+                        aabbOuter.min = Vec2(posX - 0.45f, posY - 0.45f);
+                        aabbOuter.max = Vec2(posX + sizeX + 0.45f, posY + sizeY + 0.45f); 
+                       
+                        Vec2 contactPoint;
+                        Vec2 contactNorm;
+                        float32 t = -1.0f; 
+                        if(RayVsAABB(Vec2(centerX, centerY), Vec2(ddpX, ddpY), aabbOuter, contactPoint, contactNorm, t) && t <= 1.0f) {
+                            CollisionPacket collision;
+                            collision.type = TILE_COLLISION_TYPE_4x4_R_D;
+                            collision.x = posX;
+                            collision.y = posY;
+                            collision.sizeX = sizeX;
+                            collision.sizeY = sizeY;
+                            collision.t = t;
+                            ASSERT((gameState->frameCollisionCount + 1) <= 1024);
+                            gameState->frameCollisions[gameState->frameCollisionCount++] = collision;
+                        }
+
+                        posX += sizeX;
+                    }
+                    posX = x;
+                    posY += sizeY;
+                }
+
+
+            }
+
 
         }
     }
@@ -319,20 +580,19 @@ void GameUpdateAndRender(Memory *memory, GameSound *sound, GameInput *input, Gam
                 break;
         }
     }
-    
 
     for(int32 i = 0; i < gameState->frameCollisionCount; i++) {
 
         CollisionPacket collision = gameState->frameCollisions[i];
 
-        AABB aabbOuter;
-        aabbOuter.min = Vec2(collision.x - 0.45f, collision.y - 0.45f);
-        aabbOuter.max = Vec2(collision.x + SPRITE_SIZE + 0.45f, collision.y + SPRITE_SIZE + 0.45f);
+        AABB aabb;
+        aabb.min = Vec2(collision.x - 0.45f, collision.y - 0.45f);
+        aabb.max = Vec2(collision.x + collision.sizeX + 0.45f, collision.y + collision.sizeY + 0.45f);
 
         Vec2 contactPoint;
         Vec2 contactNorm;
         float32 t = -1.0f; 
-        if(RayVsAABB(Vec2(centerX, centerY), Vec2(ddpX, ddpY), aabbOuter, contactPoint, contactNorm, t) && t <= 1.0f) {
+        if(RayVsAABB(Vec2(centerX, centerY), Vec2(ddpX, ddpY), aabb, contactPoint, contactNorm, t) && t <= 1.0f) {
 
             centerX = (contactPoint.x + contactNorm.x * 0.0001f);
             centerY = (contactPoint.y + contactNorm.y * 0.0001f);
@@ -346,32 +606,160 @@ void GameUpdateAndRender(Memory *memory, GameSound *sound, GameInput *input, Gam
 
     }
 
+    DrawRect(backBuffer, 0, 0, backBuffer->width, backBuffer->height, 0xFFAABBAA);
+
+    uint32 color = 0xFF00FFFF; 
+    for(int32 y = minY; y < maxY; y++) {
+        for(int32 x = minX; x < maxX; x++) {
+            
+            uint32 tile = gameState->tiles[y * gameState->tilesCountX + x];
+            if(tile == TILE_COLLISION_TYPE_16x16) {
+                AABB aabbOther;
+                aabbOther.min = Vec2(x, y);
+                aabbOther.max = Vec2(x + SPRITE_SIZE, y + SPRITE_SIZE);
+
+                CollisionAdjusment(backBuffer, aabbOther, color, centerX, centerY, inputX, inputY);
+               
+            }
+            if(tile == TILE_COLLISION_TYPE_8x8_R_U) {
+                
+                float32 posX = x;
+                float32 posY = y;
+                float32 sizeX = SPRITE_SIZE*0.5f;
+                float32 sizeY = SPRITE_SIZE*0.5f;
+                 
+                for(int32 j = 0; j < 2; j++) {
+                    for(int32 i = 0; i < j + 1; i++) {                
+
+                        AABB aabbOther;
+                        aabbOther.min = Vec2(posX, posY);
+                        aabbOther.max = Vec2(posX + sizeX, posY + sizeY);
+
+                        CollisionAdjusment(backBuffer, aabbOther, color, centerX, centerY, inputX, inputY);
+
+                        posX += sizeX;
+                    }
+                    posX = x;
+                    posY += sizeY;
+                }
+
+            }
+            if(tile == TILE_COLLISION_TYPE_4x4_R_D) {
+                float32 posX = x;
+                float32 posY = y;
+                float32 sizeX = SPRITE_SIZE*0.25f;
+                float32 sizeY = SPRITE_SIZE*0.25f;
+
+                
+                for(int32 j = 0; j < 4; j++) {
+                    for(int32 i = 0; i < 4 - j; i++) {                
+
+                        AABB aabbOther;
+                        aabbOther.min = Vec2(posX, posY);
+                        aabbOther.max = Vec2(posX + sizeX, posY + sizeY);
+
+                        CollisionAdjusment(backBuffer, aabbOther, color, centerX, centerY, inputX, inputY);
+                       
+                        posX += sizeX;
+                    }
+                    posX = x;
+                    posY += sizeY;
+                }
+
+
+            }
+
+
+        }
+    }
+
+
     gameState->heroX = centerX - SPRITE_SIZE*0.5f;
     gameState->heroY = centerY - SPRITE_SIZE;
 
     gameState->heroX += ddpX;
     gameState->heroY += ddpY;
+
+    
  
-    DrawRect(backBuffer, 0, 0, backBuffer->width, backBuffer->height, 0xFFAABBAA);
 
 
     // Draw the tilemap
     for(int32 y = 0; y < gameState->tilesCountY; y++) {
         for(int32 x = 0; x < gameState->tilesCountX; x++) {
             if(gameState->tiles[y * gameState->tilesCountX + x] == 1) {
+#if 1
                 DrawRectTexture(backBuffer,
                                 x * SPRITE_SIZE*MetersToPixels,
                                 y * SPRITE_SIZE*MetersToPixels,
                                 SPRITE_SIZE*MetersToPixels, SPRITE_SIZE*MetersToPixels,
                                 gameState->grassTexture);
+#endif
+
+                DrawDebugRect(backBuffer,
+                              x * SPRITE_SIZE*MetersToPixels,
+                              y * SPRITE_SIZE*MetersToPixels,
+                              SPRITE_SIZE*MetersToPixels, SPRITE_SIZE*MetersToPixels,
+                              0xFF00FF00);
+            }
+            if(gameState->tiles[y * gameState->tilesCountX + x] == TILE_COLLISION_TYPE_8x8_R_U) {
+                float32 posX = x;
+                float32 posY = y;
+                float32 sizeX = SPRITE_SIZE*0.5f;
+                float32 sizeY = SPRITE_SIZE*0.5f;
+                 
+                for(int32 j = 0; j < 2; j++) {
+                    for(int32 i = 0; i < j + 1; i++) {                
+                        DrawDebugRect(backBuffer,
+                                      posX * SPRITE_SIZE*MetersToPixels,
+                                      posY * SPRITE_SIZE*MetersToPixels,
+                                      sizeX*MetersToPixels, sizeY*MetersToPixels,
+                                      0xFF00FF00);
+                        posX += sizeX;
+                    }
+                    posX = x;
+                    posY += sizeY;
+                }
+            }
+            if(gameState->tiles[y * gameState->tilesCountX + x] == TILE_COLLISION_TYPE_4x4_R_D) {
+                float32 posX = x;
+                float32 posY = y;
+                float32 sizeX = SPRITE_SIZE*0.25f;
+                float32 sizeY = SPRITE_SIZE*0.25f;
+                
+                for(int32 j = 0; j < 4; j++) {
+                    for(int32 i = 0; i < 4 - j; i++) {                
+                        DrawDebugRect(backBuffer,
+                                      posX * SPRITE_SIZE*MetersToPixels,
+                                      posY * SPRITE_SIZE*MetersToPixels,
+                                      sizeX*MetersToPixels, sizeY*MetersToPixels,
+                                      0xFF00FF00);
+                        posX += sizeX;
+                    }
+                    posX = x;
+                    posY += sizeY;
+                }
+
             }
         }
     }
 
+    centerX = gameState->heroX + SPRITE_SIZE*0.5f;
+    centerY = gameState->heroY + SPRITE_SIZE;
+
+#if 1 
     DrawRectTexture(backBuffer, 
                     gameState->heroX*MetersToPixels,
                     gameState->heroY*MetersToPixels,
                     SPRITE_SIZE*MetersToPixels,
                     SPRITE_SIZE*1.5*MetersToPixels,
-                    gameState->heroTexture);    
+                    gameState->heroTexture);  
+#endif
+
+    DrawDebugRect(backBuffer,
+                  (centerX - 0.45f)*MetersToPixels,
+                  (centerY - 0.45f)*MetersToPixels,
+                  0.9f*MetersToPixels, 0.9f*MetersToPixels,
+                  0xFFFFFF00);
+   
 }

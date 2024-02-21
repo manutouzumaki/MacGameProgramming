@@ -205,8 +205,11 @@ static const float32 MetersToPixels = 32;
 static const float32 PixelsToMeters = 1.0f / MetersToPixels;
 static const int32 SPRITE_SIZE = 1;
 
-// TODO: link to the pass collision adjusment
-void CollisionAdjusment(GameBackBuffer *backBuffer, AABB aabbOther, uint32 &color, float32 &centerX, float32 &centerY, float32 inputX, float32 inputY) {
+// link to the pass collision adjusment
+void CollisionAdjusment(AABB aabbOther,
+                        float32 centerX, float32 centerY,
+                        float32 inputX, float32 inputY,
+                        bool &lHit, bool &mHit, bool &rHit) {
     float32 buttonPressed = inputX * inputX + inputY * inputY;
     if(buttonPressed > 0.0f) {
         
@@ -214,17 +217,37 @@ void CollisionAdjusment(GameBackBuffer *backBuffer, AABB aabbOther, uint32 &colo
         AABB sensorM;
         AABB sensorR;
 
+        float32 size = 0.9f;
+        float32 LRwidth = 0.25f * size;
+        float32 Mwidth = 0.4f * size;
+        float32 height = 0.125f * size;
+
         if(inputX != 0.0f && inputY != 0.0f) {
         }
         else if(inputX > 0.0f) {
-        
+            float32 sensorX = centerX + (size*0.5f) + (height*0.5f);
+            float32 sensorY = centerY;
+            sensorM.min = Vec2(sensorX - height * 0.5f, sensorY - Mwidth * 0.5f);
+            sensorM.max = Vec2(sensorX + height * 0.5f, sensorY + Mwidth * 0.5f); 
+
+            sensorX = centerX + (size*0.5f) + (height * 0.5f);
+            sensorY = centerY - (size*0.5f) + (LRwidth * 0.5f);
+            sensorL.min = Vec2(sensorX - height * 0.5f, sensorY - LRwidth * 0.5f);
+            sensorL.max = Vec2(sensorX + height * 0.5f, sensorY + LRwidth * 0.5f);
+              
+            sensorX = centerX + (size*0.5f) + (height * 0.5f);
+            sensorY = centerY + (size*0.5f) - (LRwidth * 0.5f);
+            sensorR.min = Vec2(sensorX - height * 0.5f, sensorY - LRwidth * 0.5f);
+            sensorR.max = Vec2(sensorX + height * 0.5f, sensorY + LRwidth * 0.5f);
+            
+            if(mHit == false)
+                mHit = AABBVsAABB(sensorM, aabbOther);
+            if(lHit == false)
+                lHit = AABBVsAABB(sensorL, aabbOther);
+            if(rHit == false)
+                rHit = AABBVsAABB(sensorR, aabbOther);        
         }
         else if(inputX < 0.0f) {
-            float32 size = 0.9f;
-            float32 LRwidth = 0.25f * size;
-            float32 Mwidth = 0.4f * size;
-            float32 height = 0.125f * size;
-
             float32 sensorX = centerX - (size*0.5f) - (height*0.5f);
             float32 sensorY = centerY;
             sensorM.min = Vec2(sensorX - height * 0.5f, sensorY - Mwidth * 0.5f);
@@ -239,49 +262,38 @@ void CollisionAdjusment(GameBackBuffer *backBuffer, AABB aabbOther, uint32 &colo
             sensorY = centerY + (size*0.5f) - (LRwidth * 0.5f);
             sensorR.min = Vec2(sensorX - height * 0.5f, sensorY - LRwidth * 0.5f);
             sensorR.max = Vec2(sensorX + height * 0.5f, sensorY + LRwidth * 0.5f);
-
-            bool mHit = AABBVsAABB(sensorM, aabbOther);
-            bool lHit = AABBVsAABB(sensorL, aabbOther);
-            bool rHit = AABBVsAABB(sensorR, aabbOther);
-
-            if(mHit == false) {
-                if(lHit) {
-                    centerY += 1.0f * 0.075f;
-                }
-                if(rHit) { 
-                    centerY -= 1.0f * 0.075f;
-                }
-            }
-
-            DrawDebugRect(backBuffer,
-                          sensorM.min.x*MetersToPixels,
-                          sensorM.min.y*MetersToPixels,
-                          (sensorM.max.x-sensorM.min.x)*MetersToPixels,
-                          (sensorM.max.y-sensorM.min.y)*MetersToPixels,
-                          color);
-            DrawDebugRect(backBuffer,
-                          sensorL.min.x*MetersToPixels,
-                          sensorL.min.y*MetersToPixels,
-                          (sensorL.max.x-sensorL.min.x)*MetersToPixels,
-                          (sensorL.max.y-sensorL.min.y)*MetersToPixels,
-                          0xFFFF00FF);
-            DrawDebugRect(backBuffer,
-                          sensorR.min.x*MetersToPixels,
-                          sensorR.min.y*MetersToPixels,
-                          (sensorR.max.x-sensorR.min.x)*MetersToPixels,
-                          (sensorR.max.y-sensorR.min.y)*MetersToPixels,
-                          0xFFFF00FF);
+            
+            if(mHit == false)
+                mHit = AABBVsAABB(sensorM, aabbOther);
+            if(lHit == false)
+                lHit = AABBVsAABB(sensorL, aabbOther);
+            if(rHit == false)
+                rHit = AABBVsAABB(sensorR, aabbOther);
         }
         else if(inputY > 0.0f) {
-        
+            float32 sensorX = centerX;
+            float32 sensorY = centerY + (size*0.5f) + (height*0.5f);
+            sensorM.min = Vec2(sensorX - Mwidth * 0.5f, sensorY - height * 0.5f);
+            sensorM.max = Vec2(sensorX + Mwidth * 0.5f, sensorY + height * 0.5f); 
+
+            sensorX = centerX - (size*0.5f) + (LRwidth * 0.5f);
+            sensorY = centerY + (size*0.5f) + (height * 0.5f);
+            sensorL.min = Vec2(sensorX - LRwidth * 0.5f, sensorY - height * 0.5f);
+            sensorL.max = Vec2(sensorX + LRwidth * 0.5f, sensorY + height * 0.5f);
+              
+            sensorX = centerX + (size*0.5f) - (LRwidth * 0.5f);
+            sensorY = centerY + (size*0.5f) + (height * 0.5f);
+            sensorR.min = Vec2(sensorX - LRwidth * 0.5f, sensorY - height * 0.5f);
+            sensorR.max = Vec2(sensorX + LRwidth * 0.5f, sensorY + height * 0.5f);
+
+            if(mHit == false)
+                mHit = AABBVsAABB(sensorM, aabbOther);
+            if(lHit == false)
+                lHit = AABBVsAABB(sensorL, aabbOther);
+            if(rHit == false)
+                rHit = AABBVsAABB(sensorR, aabbOther);    
         }
         else if(inputY < 0.0f) {
-
-            float32 size = 0.9f;
-            float32 LRwidth = 0.25f * size;
-            float32 Mwidth = 0.4f * size;
-            float32 height = 0.125f * size;
-
             float32 sensorX = centerX;
             float32 sensorY = centerY - (size*0.5f) - (height*0.5f);
             sensorM.min = Vec2(sensorX - Mwidth * 0.5f, sensorY - height * 0.5f);
@@ -297,43 +309,13 @@ void CollisionAdjusment(GameBackBuffer *backBuffer, AABB aabbOther, uint32 &colo
             sensorR.min = Vec2(sensorX - LRwidth * 0.5f, sensorY - height * 0.5f);
             sensorR.max = Vec2(sensorX + LRwidth * 0.5f, sensorY + height * 0.5f);
 
-            bool mHit = AABBVsAABB(sensorM, aabbOther);
-            bool lHit = AABBVsAABB(sensorL, aabbOther);
-            bool rHit = AABBVsAABB(sensorR, aabbOther);
-
-            
-            if(mHit == false) {
-                if(lHit) {
-                    centerX += 1.0f * 0.075f;
-                }
-                if(rHit) { 
-                    centerX -= 1.0f * 0.075f;
-                }
-            }
-            
-
-            DrawDebugRect(backBuffer,
-                          sensorM.min.x*MetersToPixels,
-                          sensorM.min.y*MetersToPixels,
-                          (sensorM.max.x-sensorM.min.x)*MetersToPixels,
-                          (sensorM.max.y-sensorM.min.y)*MetersToPixels,
-                          color);
-            DrawDebugRect(backBuffer,
-                          sensorL.min.x*MetersToPixels,
-                          sensorL.min.y*MetersToPixels,
-                          (sensorL.max.x-sensorL.min.x)*MetersToPixels,
-                          (sensorL.max.y-sensorL.min.y)*MetersToPixels,
-                          0xFFFF00FF);
-            DrawDebugRect(backBuffer,
-                          sensorR.min.x*MetersToPixels,
-                          sensorR.min.y*MetersToPixels,
-                          (sensorR.max.x-sensorR.min.x)*MetersToPixels,
-                          (sensorR.max.y-sensorR.min.y)*MetersToPixels,
-                          0xFFFF00FF);
-        
+            if(mHit == false)
+                mHit = AABBVsAABB(sensorM, aabbOther);
+            if(lHit == false)
+                lHit = AABBVsAABB(sensorL, aabbOther);
+            if(rHit == false)
+                rHit = AABBVsAABB(sensorR, aabbOther);        
         }
-
-
     }
 }
 
@@ -606,7 +588,9 @@ void GameUpdateAndRender(Memory *memory, GameSound *sound, GameInput *input, Gam
 
     }
 
-    DrawRect(backBuffer, 0, 0, backBuffer->width, backBuffer->height, 0xFFAABBAA);
+    bool mHit = false;
+    bool lHit = false;
+    bool rHit = false;
 
     uint32 color = 0xFF00FFFF; 
     for(int32 y = minY; y < maxY; y++) {
@@ -618,7 +602,8 @@ void GameUpdateAndRender(Memory *memory, GameSound *sound, GameInput *input, Gam
                 aabbOther.min = Vec2(x, y);
                 aabbOther.max = Vec2(x + SPRITE_SIZE, y + SPRITE_SIZE);
 
-                CollisionAdjusment(backBuffer, aabbOther, color, centerX, centerY, inputX, inputY);
+                CollisionAdjusment(aabbOther, centerX, centerY, inputX, inputY,
+                                   lHit, mHit, rHit);
                
             }
             if(tile == TILE_COLLISION_TYPE_8x8_R_U) {
@@ -635,7 +620,8 @@ void GameUpdateAndRender(Memory *memory, GameSound *sound, GameInput *input, Gam
                         aabbOther.min = Vec2(posX, posY);
                         aabbOther.max = Vec2(posX + sizeX, posY + sizeY);
 
-                        CollisionAdjusment(backBuffer, aabbOther, color, centerX, centerY, inputX, inputY);
+                        CollisionAdjusment(aabbOther, centerX, centerY, inputX, inputY,
+                                           lHit, mHit, rHit);
 
                         posX += sizeX;
                     }
@@ -658,21 +644,42 @@ void GameUpdateAndRender(Memory *memory, GameSound *sound, GameInput *input, Gam
                         aabbOther.min = Vec2(posX, posY);
                         aabbOther.max = Vec2(posX + sizeX, posY + sizeY);
 
-                        CollisionAdjusment(backBuffer, aabbOther, color, centerX, centerY, inputX, inputY);
+                        CollisionAdjusment(aabbOther, centerX, centerY, inputX, inputY,
+                                           lHit, mHit, rHit);
                        
                         posX += sizeX;
                     }
                     posX = x;
                     posY += sizeY;
                 }
-
-
             }
 
 
         }
     }
 
+    if(inputX != 0.0f && inputY != 0.0f) {
+    }
+    else if(inputX != 0.0f) {
+        if(mHit == false) {
+            if(lHit) {
+                centerY += 1.0f * 0.075f;
+            }
+            if(rHit) { 
+                centerY -= 1.0f * 0.075f;
+            }
+        }
+    }
+    else if(inputY != 0.0f) {
+        if(mHit == false) {
+            if(lHit) {
+                centerX += 1.0f * 0.075f;
+            }
+            if(rHit) { 
+                centerX -= 1.0f * 0.075f;
+            }
+        }
+    }
 
     gameState->heroX = centerX - SPRITE_SIZE*0.5f;
     gameState->heroY = centerY - SPRITE_SIZE;
@@ -680,8 +687,9 @@ void GameUpdateAndRender(Memory *memory, GameSound *sound, GameInput *input, Gam
     gameState->heroX += ddpX;
     gameState->heroY += ddpY;
 
-    
  
+    // Rendering Code ...
+    DrawRect(backBuffer, 0, 0, backBuffer->width, backBuffer->height, 0xFFAABBAA);
 
 
     // Draw the tilemap

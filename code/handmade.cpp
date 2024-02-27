@@ -5,6 +5,7 @@
 //  Created by Manuel Cabrerizo on 13/02/2024.
 //
 
+
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
@@ -98,7 +99,6 @@ void DrawRect(GameBackBuffer *buffer, int32 x, int32 y, int32 width, int32 heigh
     }
 }
 
-// TODO: map the textur to the rect
 void DrawRectTexture(GameBackBuffer *buffer, int32 x, int32 y, int32 width, int32 height, Texture texture) {
 
     int32 minX = MAX(x, 0);
@@ -143,181 +143,113 @@ void DrawRectTexture(GameBackBuffer *buffer, int32 x, int32 y, int32 width, int3
 
 }
 
-void Swap(float32 &a, float32 &b) {
-    float32 tmp = a;
-    a = b;
-    b = tmp;
-}
+void DEBUG_DrawCollisionTile(GameBackBuffer *backBuffer, uint32 tile, int x, int y) {
+    
+    int32 count = 0;
 
-void Swap(int32 &a, int32 &b) {
-    int32 tmp = a;
-    a = b;
-    b = tmp;
-}
-
-bool AABBVsAABB(AABB a, AABB b) {
-    if(a.max.x < b.min.x || a.min.x > b.max.x) return false;
-    if(a.max.y < b.min.y || a.min.y > b.max.y) return false;
-    return true;
-}
-
-bool RayVsAABB(Vec2 origin, Vec2 dir, AABB rect, Vec2 &contactPoint, Vec2 &contactNorm, float32 &tHitNear) {
-
-    float32 tNearX = (rect.min.x - origin.x) / dir.x;
-    float32 tFarX  = (rect.max.x - origin.x) / dir.x; 
-
-    float32 tNearY = (rect.min.y - origin.y) / dir.y;
-    float32 tFarY  = (rect.max.y - origin.y) / dir.y;
-
-    if(isnan(tFarY) || isnan(tFarX)) return false;
-    if(isnan(tNearY) || isnan(tNearX)) return false;
-
-    if(tNearX > tFarX) Swap(tNearX, tFarX);
-    if(tNearY > tFarY) Swap(tNearY, tFarY);
-
-    if(tNearX > tFarY || tNearY > tFarX) return false;
-
-    tHitNear = MAX(tNearX, tNearY);
-    float32 tHitMax = MIN(tFarX, tFarY);
-    if(tHitMax < 0) return false;
-
-    contactPoint.x = origin.x + tHitNear * dir.x;
-    contactPoint.y = origin.y + tHitNear * dir.y;
-
-    if(tNearX > tNearY) {
-        if(dir.x < 0) 
-            contactNorm = Vec2(1, 0);
-        else
-            contactNorm = Vec2(-1, 0);
-    }
-    else if(tNearX < tNearY) {
-        if(dir.y < 0)
-            contactNorm = Vec2(0, 1);
-        else
-            contactNorm = Vec2(0, -1);
+    switch(tile) {
+        case TILE_COLLISION_TYPE_16x16: {
+            count = 1;
+        } break;
+        case TILE_COLLISION_TYPE_8x8_L_U:
+        case TILE_COLLISION_TYPE_8x8_R_U:
+        case TILE_COLLISION_TYPE_8x8_L_D:
+        case TILE_COLLISION_TYPE_8x8_R_D: {
+            count = 2;
+        } break;
+        case TILE_COLLISION_TYPE_4x4_L_U:
+        case TILE_COLLISION_TYPE_4x4_R_U:
+        case TILE_COLLISION_TYPE_4x4_L_D:
+        case TILE_COLLISION_TYPE_4x4_R_D: {
+            count = 4;
+        } break;
     }
 
-    return true;
+    float32 sizeX = (float32)SPRITE_SIZE / (float32)count;
+    float32 sizeY = (float32)SPRITE_SIZE / (float32)count;
 
-}
-
-static const float32 MetersToPixels = 32;
-static const float32 PixelsToMeters = 1.0f / MetersToPixels;
-static const int32 SPRITE_SIZE = 1;
-
-// link to the pass collision adjusment
-void CollisionAdjusment(AABB aabbOther,
-                        float32 centerX, float32 centerY,
-                        float32 inputX, float32 inputY,
-                        bool &lHit, bool &mHit, bool &rHit) {
-    float32 buttonPressed = inputX * inputX + inputY * inputY;
-    if(buttonPressed > 0.0f) {
-        
-        AABB sensorL;
-        AABB sensorM;
-        AABB sensorR;
-
-        float32 size = 0.9f;
-        float32 LRwidth = 0.25f * size;
-        float32 Mwidth = 0.4f * size;
-        float32 height = 0.125f * size;
-
-        if(inputX != 0.0f && inputY != 0.0f) {
-        }
-        else if(inputX > 0.0f) {
-            float32 sensorX = centerX + (size*0.5f) + (height*0.5f);
-            float32 sensorY = centerY;
-            sensorM.min = Vec2(sensorX - height * 0.5f, sensorY - Mwidth * 0.5f);
-            sensorM.max = Vec2(sensorX + height * 0.5f, sensorY + Mwidth * 0.5f); 
-
-            sensorX = centerX + (size*0.5f) + (height * 0.5f);
-            sensorY = centerY - (size*0.5f) + (LRwidth * 0.5f);
-            sensorL.min = Vec2(sensorX - height * 0.5f, sensorY - LRwidth * 0.5f);
-            sensorL.max = Vec2(sensorX + height * 0.5f, sensorY + LRwidth * 0.5f);
-              
-            sensorX = centerX + (size*0.5f) + (height * 0.5f);
-            sensorY = centerY + (size*0.5f) - (LRwidth * 0.5f);
-            sensorR.min = Vec2(sensorX - height * 0.5f, sensorY - LRwidth * 0.5f);
-            sensorR.max = Vec2(sensorX + height * 0.5f, sensorY + LRwidth * 0.5f);
-            
-            if(mHit == false)
-                mHit = AABBVsAABB(sensorM, aabbOther);
-            if(lHit == false)
-                lHit = AABBVsAABB(sensorL, aabbOther);
-            if(rHit == false)
-                rHit = AABBVsAABB(sensorR, aabbOther);        
-        }
-        else if(inputX < 0.0f) {
-            float32 sensorX = centerX - (size*0.5f) - (height*0.5f);
-            float32 sensorY = centerY;
-            sensorM.min = Vec2(sensorX - height * 0.5f, sensorY - Mwidth * 0.5f);
-            sensorM.max = Vec2(sensorX + height * 0.5f, sensorY + Mwidth * 0.5f); 
-
-            sensorX = centerX - (size*0.5f) - (height * 0.5f);
-            sensorY = centerY - (size*0.5f) + (LRwidth * 0.5f);
-            sensorL.min = Vec2(sensorX - height * 0.5f, sensorY - LRwidth * 0.5f);
-            sensorL.max = Vec2(sensorX + height * 0.5f, sensorY + LRwidth * 0.5f);
-              
-            sensorX = centerX - (size*0.5f) - (height * 0.5f);
-            sensorY = centerY + (size*0.5f) - (LRwidth * 0.5f);
-            sensorR.min = Vec2(sensorX - height * 0.5f, sensorY - LRwidth * 0.5f);
-            sensorR.max = Vec2(sensorX + height * 0.5f, sensorY + LRwidth * 0.5f);
-            
-            if(mHit == false)
-                mHit = AABBVsAABB(sensorM, aabbOther);
-            if(lHit == false)
-                lHit = AABBVsAABB(sensorL, aabbOther);
-            if(rHit == false)
-                rHit = AABBVsAABB(sensorR, aabbOther);
-        }
-        else if(inputY > 0.0f) {
-            float32 sensorX = centerX;
-            float32 sensorY = centerY + (size*0.5f) + (height*0.5f);
-            sensorM.min = Vec2(sensorX - Mwidth * 0.5f, sensorY - height * 0.5f);
-            sensorM.max = Vec2(sensorX + Mwidth * 0.5f, sensorY + height * 0.5f); 
-
-            sensorX = centerX - (size*0.5f) + (LRwidth * 0.5f);
-            sensorY = centerY + (size*0.5f) + (height * 0.5f);
-            sensorL.min = Vec2(sensorX - LRwidth * 0.5f, sensorY - height * 0.5f);
-            sensorL.max = Vec2(sensorX + LRwidth * 0.5f, sensorY + height * 0.5f);
-              
-            sensorX = centerX + (size*0.5f) - (LRwidth * 0.5f);
-            sensorY = centerY + (size*0.5f) + (height * 0.5f);
-            sensorR.min = Vec2(sensorX - LRwidth * 0.5f, sensorY - height * 0.5f);
-            sensorR.max = Vec2(sensorX + LRwidth * 0.5f, sensorY + height * 0.5f);
-
-            if(mHit == false)
-                mHit = AABBVsAABB(sensorM, aabbOther);
-            if(lHit == false)
-                lHit = AABBVsAABB(sensorL, aabbOther);
-            if(rHit == false)
-                rHit = AABBVsAABB(sensorR, aabbOther);    
-        }
-        else if(inputY < 0.0f) {
-            float32 sensorX = centerX;
-            float32 sensorY = centerY - (size*0.5f) - (height*0.5f);
-            sensorM.min = Vec2(sensorX - Mwidth * 0.5f, sensorY - height * 0.5f);
-            sensorM.max = Vec2(sensorX + Mwidth * 0.5f, sensorY + height * 0.5f); 
-
-            sensorX = centerX - (size*0.5f) + (LRwidth * 0.5f);
-            sensorY = centerY - (size*0.5f) - (height * 0.5f);
-            sensorL.min = Vec2(sensorX - LRwidth * 0.5f, sensorY - height * 0.5f);
-            sensorL.max = Vec2(sensorX + LRwidth * 0.5f, sensorY + height * 0.5f);
-              
-            sensorX = centerX + (size*0.5f) - (LRwidth * 0.5f);
-            sensorY = centerY - (size*0.5f) - (height * 0.5f);
-            sensorR.min = Vec2(sensorX - LRwidth * 0.5f, sensorY - height * 0.5f);
-            sensorR.max = Vec2(sensorX + LRwidth * 0.5f, sensorY + height * 0.5f);
-
-            if(mHit == false)
-                mHit = AABBVsAABB(sensorM, aabbOther);
-            if(lHit == false)
-                lHit = AABBVsAABB(sensorL, aabbOther);
-            if(rHit == false)
-                rHit = AABBVsAABB(sensorR, aabbOther);        
-        }
+    switch(tile) {
+        case TILE_COLLISION_TYPE_16x16: {
+            float32 posX = x;
+            float32 posY = y;
+            DrawDebugRect(backBuffer,
+                          posX * SPRITE_SIZE*MetersToPixels,
+                          posY * SPRITE_SIZE*MetersToPixels,
+                          sizeX*MetersToPixels, sizeY*MetersToPixels,
+                          0xFF00FF00);                       
+        } break;
+        case TILE_COLLISION_TYPE_8x8_L_U:
+        case TILE_COLLISION_TYPE_4x4_L_U: {
+            float32 posX = x + (count - 1)*sizeX;
+            float32 posY = y;
+            for(int32 j = 0; j < count; j++) {
+                for(int32 i = 0; i < j + 1; i++) {                
+                    DrawDebugRect(backBuffer,
+                                  posX * SPRITE_SIZE*MetersToPixels,
+                                  posY * SPRITE_SIZE*MetersToPixels,
+                                  sizeX*MetersToPixels, sizeY*MetersToPixels,
+                                  0xFF00FF00);
+                    posX -= sizeX;
+                }
+                posX = x + (count - 1)*sizeX;
+                posY += sizeY;
+            }
+        } break;
+        case TILE_COLLISION_TYPE_8x8_R_U:
+        case TILE_COLLISION_TYPE_4x4_R_U: {
+            float32 posX = x;
+            float32 posY = y;
+            for(int32 j = 0; j < count; j++) {
+                for(int32 i = 0; i < j + 1; i++) {                
+                    DrawDebugRect(backBuffer,
+                                  posX * SPRITE_SIZE*MetersToPixels,
+                                  posY * SPRITE_SIZE*MetersToPixels,
+                                  sizeX*MetersToPixels, sizeY*MetersToPixels,
+                                  0xFF00FF00);
+                    posX += sizeX;
+                }
+                posX = x;
+                posY += sizeY;
+            }
+        } break;
+        case TILE_COLLISION_TYPE_8x8_L_D:
+        case TILE_COLLISION_TYPE_4x4_L_D: {
+            float32 posX = x + (count - 1)*sizeX;
+            float32 posY = y;
+            for(int32 j = 0; j < count; j++) {
+                for(int32 i = 0; i < count - j; i++) {                
+                    DrawDebugRect(backBuffer,
+                                  posX * SPRITE_SIZE*MetersToPixels,
+                                  posY * SPRITE_SIZE*MetersToPixels,
+                                  sizeX*MetersToPixels, sizeY*MetersToPixels,
+                                  0xFF00FF00);
+                    posX -= sizeX;
+                }
+                posX = x + (count - 1)*sizeX;
+                posY += sizeY;
+            }
+        } break;
+        case TILE_COLLISION_TYPE_8x8_R_D:
+        case TILE_COLLISION_TYPE_4x4_R_D: {
+            float32 posX = x;
+            float32 posY = y;
+            for(int32 j = 0; j < count; j++) {
+                for(int32 i = 0; i < count - j; i++) {                
+                    DrawDebugRect(backBuffer,
+                                  posX * SPRITE_SIZE*MetersToPixels,
+                                  posY * SPRITE_SIZE*MetersToPixels,
+                                  sizeX*MetersToPixels, sizeY*MetersToPixels,
+                                  0xFF00FF00);
+                    posX += sizeX;
+                }
+                posX = x;
+                posY += sizeY;
+            }
+        } break;
     }
 }
+
+
 
 void GameInitialize(Memory *memory, GameSound *sound, GameInput *input) {
     
@@ -340,7 +272,7 @@ void GameInitialize(Memory *memory, GameSound *sound, GameInput *input) {
     gameState->grassTexture = LoadTexture(&gameState->assetsArena, grassPath);
 
 
-    // TODO: test tilemap 
+    // TODO: remove test tilemap 
     uint32 tempTiles[16*16] = {
         1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
         0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 1,
@@ -376,6 +308,8 @@ void GameUpdateAndRender(Memory *memory, GameSound *sound, GameInput *input, Gam
 
     GameState *gameState = (GameState *)memory->data;
 
+    float32 dt = input->deltaTime;
+
     if(input->controllers[0].A.endedDown) {
         sound->Restart(gameState->missionCompleted);
         sound->Play(gameState->missionCompleted);
@@ -409,8 +343,8 @@ void GameUpdateAndRender(Memory *memory, GameSound *sound, GameInput *input, Gam
         ddpY *= invLen;
     }
 
-    ddpX *= 0.075f;
-    ddpY *= 0.075f;
+    ddpX *= 0.075f * 60.0f * dt;
+    ddpY *= 0.075f * 60.0f * dt;
 
     float32 centerX = gameState->heroX + SPRITE_SIZE*0.5f;
     float32 centerY = gameState->heroY + SPRITE_SIZE;
@@ -418,7 +352,7 @@ void GameUpdateAndRender(Memory *memory, GameSound *sound, GameInput *input, Gam
     // check simple collisions
     gameState->frameCollisionCount = 0;
     
-    //TODO: olny check the posible tiles, not the entire tilemap
+    // olny check the posible tiles, not the entire tilemap
     AABB oldP;
     oldP.min = Vec2(centerX - 0.45f, centerY - 0.45f); 
     oldP.max = Vec2(centerX + 0.45f, centerY + 0.45f); 
@@ -432,109 +366,22 @@ void GameUpdateAndRender(Memory *memory, GameSound *sound, GameInput *input, Gam
     int32 maxX = (int32)ceilf(MAX(oldP.max.x, newP.max.x));
     int32 maxY = (int32)ceilf(MAX(oldP.max.y, newP.max.y)); 
 
-    // TODO: clamp to fall inside the tilemap
+    // clamp to fall inside the tilemap
     minX = MAX(minX, 0);
     minY = MAX(minY, 0);
     maxX = MIN(maxX, gameState->tilesCountX);
     maxY = MIN(maxY, gameState->tilesCountY);
     
+    // Generate Frame Collision Data
     for(int32 y = minY; y < maxY; y++) {
         for(int32 x = minX; x < maxX; x++) {
             
-            uint32 tile = gameState->tiles[y * gameState->tilesCountX + x];
-            if(tile == TILE_COLLISION_TYPE_16x16) {
-                AABB aabbOuter;
-                aabbOuter.min = Vec2(x - 0.45f, y - 0.45f);
-                aabbOuter.max = Vec2(x + SPRITE_SIZE + 0.45f, y + SPRITE_SIZE + 0.45f); 
-               
-                Vec2 contactPoint;
-                Vec2 contactNorm;
-                float32 t = -1.0f; 
-                if(RayVsAABB(Vec2(centerX, centerY), Vec2(ddpX, ddpY), aabbOuter, contactPoint, contactNorm, t) && t <= 1.0f) {
-                    CollisionPacket collision;
-                    collision.type = TILE_COLLISION_TYPE_16x16;
-                    collision.x = x;
-                    collision.y = y;
-                    collision.sizeX = SPRITE_SIZE;
-                    collision.sizeY = SPRITE_SIZE;
-                    collision.t = t;
-                    ASSERT((gameState->frameCollisionCount + 1) <= 1024);
-                    gameState->frameCollisions[gameState->frameCollisionCount++] = collision;
-                }
+            TileCollisionType tileType = (TileCollisionType)gameState->tiles[y * gameState->tilesCountX + x];
+            CollisionTile collision = GenerateCollisionTile(tileType, x, y, centerX, centerY, ddpX, ddpY);
+            for(int32 i = 0; i < collision.count; i++) {
+                ASSERT((gameState->frameCollisionCount + 1) <= 1024);
+                gameState->frameCollisions[gameState->frameCollisionCount++] = collision.packets[i];
             }
-            if(tile == TILE_COLLISION_TYPE_8x8_R_U) {
-                
-                float32 posX = x;
-                float32 posY = y;
-                float32 sizeX = SPRITE_SIZE*0.5f;
-                float32 sizeY = SPRITE_SIZE*0.5f;
-                 
-                for(int32 j = 0; j < 2; j++) {
-                    for(int32 i = 0; i < j + 1; i++) {                
-
-                        AABB aabbOuter;
-                        aabbOuter.min = Vec2(posX - 0.45f, posY - 0.45f);
-                        aabbOuter.max = Vec2(posX + sizeX + 0.45f, posY + sizeY + 0.45f); 
-                       
-                        Vec2 contactPoint;
-                        Vec2 contactNorm;
-                        float32 t = -1.0f; 
-                        if(RayVsAABB(Vec2(centerX, centerY), Vec2(ddpX, ddpY), aabbOuter, contactPoint, contactNorm, t) && t <= 1.0f) {
-                            CollisionPacket collision;
-                            collision.type = TILE_COLLISION_TYPE_8x8_R_U;
-                            collision.x = posX;
-                            collision.y = posY;
-                            collision.sizeX = sizeX;
-                            collision.sizeY = sizeY;
-                            collision.t = t;
-                            ASSERT((gameState->frameCollisionCount + 1) <= 1024);
-                            gameState->frameCollisions[gameState->frameCollisionCount++] = collision;
-                        }
-
-                        posX += sizeX;
-                    }
-                    posX = x;
-                    posY += sizeY;
-                }
-
-            }
-            if(tile == TILE_COLLISION_TYPE_4x4_R_D) {
-                float32 posX = x;
-                float32 posY = y;
-                float32 sizeX = SPRITE_SIZE*0.25f;
-                float32 sizeY = SPRITE_SIZE*0.25f;
-                
-                for(int32 j = 0; j < 4; j++) {
-                    for(int32 i = 0; i < 4 - j; i++) {                
-
-                        AABB aabbOuter;
-                        aabbOuter.min = Vec2(posX - 0.45f, posY - 0.45f);
-                        aabbOuter.max = Vec2(posX + sizeX + 0.45f, posY + sizeY + 0.45f); 
-                       
-                        Vec2 contactPoint;
-                        Vec2 contactNorm;
-                        float32 t = -1.0f; 
-                        if(RayVsAABB(Vec2(centerX, centerY), Vec2(ddpX, ddpY), aabbOuter, contactPoint, contactNorm, t) && t <= 1.0f) {
-                            CollisionPacket collision;
-                            collision.type = TILE_COLLISION_TYPE_4x4_R_D;
-                            collision.x = posX;
-                            collision.y = posY;
-                            collision.sizeX = sizeX;
-                            collision.sizeY = sizeY;
-                            collision.t = t;
-                            ASSERT((gameState->frameCollisionCount + 1) <= 1024);
-                            gameState->frameCollisions[gameState->frameCollisionCount++] = collision;
-                        }
-
-                        posX += sizeX;
-                    }
-                    posX = x;
-                    posY += sizeY;
-                }
-
-
-            }
-
 
         }
     }
@@ -658,25 +505,26 @@ void GameUpdateAndRender(Memory *memory, GameSound *sound, GameInput *input, Gam
         }
     }
 
+    // TODO: update the velocity intead of change the position directly
     if(inputX != 0.0f && inputY != 0.0f) {
     }
     else if(inputX != 0.0f) {
         if(mHit == false) {
             if(lHit) {
-                centerY += 1.0f * 0.075f;
+                centerY += 1.0f * 0.075f * 60.0f * dt;
             }
             if(rHit) { 
-                centerY -= 1.0f * 0.075f;
+                centerY -= 1.0f * 0.075f * 60.0f * dt;
             }
         }
     }
     else if(inputY != 0.0f) {
         if(mHit == false) {
             if(lHit) {
-                centerX += 1.0f * 0.075f;
+                centerX += 1.0f * 0.075f * 60.0f * dt;
             }
             if(rHit) { 
-                centerX -= 1.0f * 0.075f;
+                centerX -= 1.0f * 0.075f * 60.0f * dt;
             }
         }
     }
@@ -691,79 +539,40 @@ void GameUpdateAndRender(Memory *memory, GameSound *sound, GameInput *input, Gam
     // Rendering Code ...
     DrawRect(backBuffer, 0, 0, backBuffer->width, backBuffer->height, 0xFFAABBAA);
 
-
     // Draw the tilemap
     for(int32 y = 0; y < gameState->tilesCountY; y++) {
         for(int32 x = 0; x < gameState->tilesCountX; x++) {
             if(gameState->tiles[y * gameState->tilesCountX + x] == 1) {
-#if 1
                 DrawRectTexture(backBuffer,
                                 x * SPRITE_SIZE*MetersToPixels,
                                 y * SPRITE_SIZE*MetersToPixels,
                                 SPRITE_SIZE*MetersToPixels, SPRITE_SIZE*MetersToPixels,
                                 gameState->grassTexture);
-#endif
-
-                DrawDebugRect(backBuffer,
-                              x * SPRITE_SIZE*MetersToPixels,
-                              y * SPRITE_SIZE*MetersToPixels,
-                              SPRITE_SIZE*MetersToPixels, SPRITE_SIZE*MetersToPixels,
-                              0xFF00FF00);
-            }
-            if(gameState->tiles[y * gameState->tilesCountX + x] == TILE_COLLISION_TYPE_8x8_R_U) {
-                float32 posX = x;
-                float32 posY = y;
-                float32 sizeX = SPRITE_SIZE*0.5f;
-                float32 sizeY = SPRITE_SIZE*0.5f;
-                 
-                for(int32 j = 0; j < 2; j++) {
-                    for(int32 i = 0; i < j + 1; i++) {                
-                        DrawDebugRect(backBuffer,
-                                      posX * SPRITE_SIZE*MetersToPixels,
-                                      posY * SPRITE_SIZE*MetersToPixels,
-                                      sizeX*MetersToPixels, sizeY*MetersToPixels,
-                                      0xFF00FF00);
-                        posX += sizeX;
-                    }
-                    posX = x;
-                    posY += sizeY;
-                }
-            }
-            if(gameState->tiles[y * gameState->tilesCountX + x] == TILE_COLLISION_TYPE_4x4_R_D) {
-                float32 posX = x;
-                float32 posY = y;
-                float32 sizeX = SPRITE_SIZE*0.25f;
-                float32 sizeY = SPRITE_SIZE*0.25f;
-                
-                for(int32 j = 0; j < 4; j++) {
-                    for(int32 i = 0; i < 4 - j; i++) {                
-                        DrawDebugRect(backBuffer,
-                                      posX * SPRITE_SIZE*MetersToPixels,
-                                      posY * SPRITE_SIZE*MetersToPixels,
-                                      sizeX*MetersToPixels, sizeY*MetersToPixels,
-                                      0xFF00FF00);
-                        posX += sizeX;
-                    }
-                    posX = x;
-                    posY += sizeY;
-                }
-
             }
         }
     }
 
-    centerX = gameState->heroX + SPRITE_SIZE*0.5f;
-    centerY = gameState->heroY + SPRITE_SIZE;
+   for(int32 y = 0; y < gameState->tilesCountY; y++) {
+        for(int32 x = 0; x < gameState->tilesCountX; x++) {
+            
+            uint32 tile = gameState->tiles[y * gameState->tilesCountX + x];
+            
+            if(tile == TILE_COLLISION_TYPE_NO_COLLISION) continue;
+            
+            DEBUG_DrawCollisionTile(backBuffer, tile, x, y);
 
-#if 1 
+        }
+   }
+
     DrawRectTexture(backBuffer, 
                     gameState->heroX*MetersToPixels,
                     gameState->heroY*MetersToPixels,
                     SPRITE_SIZE*MetersToPixels,
                     SPRITE_SIZE*1.5*MetersToPixels,
                     gameState->heroTexture);  
-#endif
 
+    centerX = gameState->heroX + SPRITE_SIZE*0.5f;
+    centerY = gameState->heroY + SPRITE_SIZE;
     DrawDebugRect(backBuffer,
                   (centerX - 0.45f)*MetersToPixels,
                   (centerY - 0.45f)*MetersToPixels,

@@ -13,6 +13,10 @@
 
 #import "../assets/shaders/AAPLShaderTypes.h"
 
+
+#include <mach/mach_init.h>
+#include <mach/mach_time.h>
+
 #include "common.h"
 #include "handmade.h"
 
@@ -21,6 +25,8 @@
 #include "mac_sound_sys.cpp"
 
 #include "wave_file.cpp"
+#include "collision.cpp"
+#include "tilemap.cpp"
 #include "handmade.cpp"
 
 @interface MacWindow : NSWindow
@@ -46,6 +52,9 @@ struct MacApp {
     MacViewDelegate *viewDelegate;
     MacInputController *inputController;
     AudioUnit audioUnit;
+
+    uint64 lastTimeCounter;
+    uint64 frequency;
 };
 
 void MacApplicationShutdown(MacApp *app);
@@ -82,8 +91,14 @@ static const int32 GAME_MEMORY_SIZE = GB(1);
 @implementation MacViewDelegate
 // NOTE: game's render loop
 - (void)drawInMTKView:(MTKView *) view {
-    
+
+    uint64 currentTimeCounter = mach_absolute_time();
+    uint64 elapsedTime = (currentTimeCounter - gMacApp.lastTimeCounter) * gMacApp.frequency;
+    float64 deltaTime = (float64)elapsedTime * 1.0E-9;
+    gMacApp.lastTimeCounter = currentTimeCounter;
+
     MacProcessInput(&gInput, gInput.currentInput);
+    gInput.currentInput->deltaTime = (float32)deltaTime;
     
     GameBackBuffer gameBackBuffer;
     gameBackBuffer.data = (void *)gRenderer.backBuffer;
@@ -277,5 +292,14 @@ int main(int argc, const char *argv[]) {
     gInput.currentInput->GetPath = MacGetPath;
 
     GameInitialize(&gMemory, &gMacSoundSys.sound, gInput.currentInput);
+    
+    mach_timebase_info_data_t timeBaseInfo;
+    mach_timebase_info(&timeBaseInfo);
+
+    
+    gMacApp.lastTimeCounter = mach_absolute_time();
+    gMacApp.frequency = timeBaseInfo.numer / timeBaseInfo.denom;
+
+
     return NSApplicationMain(argc, argv);
 }

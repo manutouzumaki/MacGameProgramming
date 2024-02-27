@@ -49,6 +49,7 @@ struct GameController {
 struct GameInput {
     const char *(*GetPath)(const char *name, const char *ext);
     GameController controllers[4];
+    float32 deltaTime;
 };
 
 
@@ -126,6 +127,11 @@ struct CollisionPacket {
     float32 t;
 };
 
+struct CollisionTile {
+    CollisionPacket packets[256];
+    int32 count;  
+};
+
 struct GameState {
 
     float32 heroX;
@@ -150,3 +156,8 @@ struct GameState {
 };
 
 #endif
+
+// NOTE: temporal place for Globals
+static const float32 MetersToPixels = 32;
+static const float32 PixelsToMeters = 1.0f / MetersToPixels;
+static const int32 SPRITE_SIZE = 1;

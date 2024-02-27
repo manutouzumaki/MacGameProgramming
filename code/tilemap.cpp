@@ -1,3 +1,9 @@
+//
+//  tilemap.cpp
+//
+//
+//  Created by Manuel Cabrerizo on 27/02/2024.
+//
 
 CollisionTile GenerateCollisionTileSQ(int32 x, int32 y, float32 centerX, float32 centerY, float32 ddpX, float32 ddpY) {
     CollisionTile result;

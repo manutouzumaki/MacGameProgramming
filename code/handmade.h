@@ -132,6 +132,12 @@ struct CollisionTile {
     int32 count;  
 };
 
+struct AdjustmentSensor {
+    bool mHit;
+    bool lHit;
+    bool rHit;
+};
+
 struct GameState {
 
     float32 heroX;

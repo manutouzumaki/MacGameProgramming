@@ -27,6 +27,7 @@
 #include "wave_file.cpp"
 #include "collision.cpp"
 #include "tilemap.cpp"
+#include "draw.cpp"
 #include "handmade.cpp"
 
 @interface MacWindow : NSWindow

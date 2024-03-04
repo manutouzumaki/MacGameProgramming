@@ -63,6 +63,31 @@ bool RayVsAABB(Vec2 origin, Vec2 dir, AABB rect, Vec2 &contactPoint, Vec2 &conta
 
 }
 
+void SortCollisionPacket(CollisionPacket *collisions, int32 count) {
+
+    int32 i, j;
+    bool swapped;
+    for (i = 0; i < count - 1; i++) {
+        swapped = false;
+        for (j = 0; j < count - i - 1; j++) {
+            if (collisions[j].t > collisions[j + 1].t) {
+
+                CollisionPacket tmp = collisions[j];
+                collisions[j] = collisions[j + 1];
+                collisions[j + 1] = tmp;
+
+                swapped = true;
+            }
+        }
+ 
+        // If no two elements were swapped by inner loop,
+        // then break
+        if (swapped == false)
+            break;
+    }
+
+}
+
 // link to the pass collision adjusment
 void CollisionAdjusment(AABB aabbOther,
                         float32 centerX, float32 centerY,

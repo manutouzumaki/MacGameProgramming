@@ -36,15 +36,17 @@ void *ArenaPushSize(Arena *arena, size_t size) {
 #define ArenaPushArray(arena, count, type) (type *)ArenaPushSize(arena, count * sizeof(type))
 
 Texture LoadTexture(Arena *arena, char const *path) {
+
     Texture texture = {};
     int32 w, h, comp;
+    NSLog(@"before: %s\n", path);
     void *data = stbi_load(path, &w, &h, &comp, 4);
     if(data) {
         texture.width = w;
         texture.height = h;
         texture.data = (uint32 *)ArenaPushSize(arena, w * h * comp);
         uint32 *pixels = (uint32 *)data;
-        for(uint32 i = 0; i < w * h * comp; i++) {
+        for(uint32 i = 0; i < w * h; i++) {
             int32 A = (pixels[i] >> 24) & 0xFF;
             int32 B = (pixels[i] >> 16) & 0xFF;
             int32 G = (pixels[i] >> 8 ) & 0xFF;
@@ -56,6 +58,86 @@ Texture LoadTexture(Arena *arena, char const *path) {
     return texture;
 }
 
+Tilemap LoadCSVTilemap(Arena *arena, const char *szFileName, int32 width, int32 height, bool collision = false) {
+
+    FILE *file = fopen(szFileName, "r");
+    if(!file) {
+        // TODO: handle this
+    }
+    // go to the end of the file
+    fseek(file, 0, SEEK_END);
+    // get the size of the file to alloc the memory we need
+    long int fileSize = ftell(file);
+    // go back to the start of the file
+    fseek(file, 0, SEEK_SET);
+    // alloc the memory
+    uint8 *fileData = (uint8 *)ArenaPushSize(arena, fileSize + 1);
+    memset(fileData, 0, fileSize + 1);
+    // store the content of the file
+    fread(fileData, fileSize, 1, file);
+    fileData[fileSize] = 0; // null terminating string...
+    fclose(file);
+
+
+    Tilemap result; 
+    result.tiles = (uint32 *)ArenaPushSize(arena, width * height * sizeof(uint32));
+    result.width = width;
+    result.height = height;
+    
+    int32 counter = 0;
+    char *value = (char *)fileData;
+    while(*value) {
+        int size = 0;
+        
+        char *iterator = value;
+        while(*iterator != ',' && *iterator != '\n' && *iterator != 0) {
+            size++;
+            iterator++;
+        }
+
+        static char buffer[32];
+        memcpy(buffer, value, size);
+        buffer[size] = '\0';
+        int32 tile = atoi(buffer);
+        result.tiles[counter++] = collision ? (uint32)(tile + 1) : (uint32)tile;
+        
+        value += size + 1;
+    }
+
+    return result;
+}
+
+UV *GenerateUVs(Arena *arena, int32 tileWidth, int32 tileHeight, Texture texture) {
+
+    int32 countX = texture.width / tileWidth;
+    int32 countY = texture.height / tileHeight;
+    
+    UV *uvs = (UV *)ArenaPushArray(arena, countX * countY, UV);
+
+    float32 uSize = (float32)tileWidth / (float32)texture.width;
+    float32 vSize = (float32)tileHeight / (float32)texture.height;
+    
+    float32 vmin = 0;
+    for(int32 y = 0; y < countY; ++y) {
+        float32 umin = 0;
+        for(int32 x = 0; x < countX; ++x) {
+            UV uv;
+            uv.umin = umin;
+            uv.vmin = vmin;
+            uv.umax = umin + uSize;
+            uv.vmax = vmin + vSize; 
+            uvs[y * countX + x] = uv;
+
+            umin += uSize;        
+        }
+        vmin += vSize;
+    }
+
+    return uvs;
+    
+
+}
+
 void GameInitialize(Memory *memory, GameSound *sound, GameInput *input) {
     
     ASSERT((memory->used + sizeof(GameState)) <= memory->size);
@@ -64,10 +146,9 @@ void GameInitialize(Memory *memory, GameSound *sound, GameInput *input) {
     memory->used += sizeof(GameState);
 
 
-    gameState->worldArena = ArenaCreate(memory, MB(2));
-    gameState->assetsArena = ArenaCreate(memory, MB(40));
+    gameState->assetsArena = ArenaCreate(memory, MB(500));
 
-    gameState->oliviaRodrigo = sound->Load(&gameState->assetsArena, "test", false, true);
+    gameState->oliviaRodrigo = sound->Load(&gameState->assetsArena, "test", true, true);
     gameState->missionCompleted = sound->Load(&gameState->assetsArena, "test1", false, false);
 
     const char *heroPath = input->GetPath("link", "png"); 
@@ -76,35 +157,24 @@ void GameInitialize(Memory *memory, GameSound *sound, GameInput *input) {
     const char *grassPath = input->GetPath("grass", "png"); 
     gameState->grassTexture = LoadTexture(&gameState->assetsArena, grassPath);
 
+    const char *tilemapTexturePath = input->GetPath("tilemap", "png");
+    gameState->tilemapTexture = LoadTexture(&gameState->assetsArena, tilemapTexturePath);
 
-    // TODO: remove test tilemap 
-    uint32 tempTiles[16*16] = {
-        1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-        0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 1,
-        0, 0, 0, 1, 1, 1, 1, TILE_COLLISION_TYPE_4x4_R_D, 0, 0, 1, 1, 0, 0, 0, 1,
-        0, 0, 0, 1, 1, 1, TILE_COLLISION_TYPE_4x4_R_D, 0, 0, 0, 1, 1, 0, 1, 0, 1,
-        0, 0, 0, 1, 1, TILE_COLLISION_TYPE_4x4_R_D, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1,
-        1, 0, 0, 1, TILE_COLLISION_TYPE_4x4_R_D, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1,
-        1, 0, 0, TILE_COLLISION_TYPE_4x4_R_D, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1,
-        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1,
-        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 1,
-        1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1,
-        1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1,
-        1, 0, 1, 1, 1, TILE_COLLISION_TYPE_8x8_R_U, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1,
-        1, 0, 0, 1, 1, 1, TILE_COLLISION_TYPE_8x8_R_U, 0, 0, 1, 0, 0, 1, 1, 1, 1,
-        1, 0, 0, 1, 1, 1, 1, TILE_COLLISION_TYPE_8x8_R_U, 0, 1, 0, 1, 1, 1, 1, 1,
-        1, 0, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1,
-        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
-    };
+    const char *tilemapPath = input->GetPath("tilemap", "csv");
+    gameState->tilemap = LoadCSVTilemap(&gameState->assetsArena, tilemapPath, 16, 16);
 
-    gameState->tilesCountX = 16;
-    gameState->tilesCountY = 16;
-    gameState->tiles = (uint32 *)ArenaPushArray(&gameState->worldArena, gameState->tilesCountX * gameState->tilesCountY, uint32);
-    memcpy(gameState->tiles, tempTiles, gameState->tilesCountX * gameState->tilesCountY * sizeof(uint32));
+    const char *collisionPath = input->GetPath("collision", "csv");
+    Tilemap collision = LoadCSVTilemap(&gameState->assetsArena, collisionPath, 16, 16, true);
+
+    gameState->tilemapUVs = GenerateUVs(&gameState->assetsArena, 16, 16, gameState->tilemapTexture);
+
+    gameState->tilesCountX = collision.width;
+    gameState->tilesCountY = collision.height;
+    gameState->tiles = collision.tiles;
 
     // hero start position
-    gameState->heroX = 1;
-    gameState->heroY = 1;
+    gameState->heroX = 0;
+    gameState->heroY = 0;
 
 
 }
@@ -256,18 +326,21 @@ void GameUpdateAndRender(Memory *memory, GameSound *sound, GameInput *input, Gam
     DrawRect(backBuffer, 0, 0, backBuffer->width, backBuffer->height, 0xFFAABBAA);
 
     // Draw the tilemap
-    for(int32 y = 0; y < gameState->tilesCountY; y++) {
-        for(int32 x = 0; x < gameState->tilesCountX; x++) {
-            if(gameState->tiles[y * gameState->tilesCountX + x] == 1) {
-                DrawRectTexture(backBuffer,
-                                x * SPRITE_SIZE*MetersToPixels,
-                                y * SPRITE_SIZE*MetersToPixels,
-                                SPRITE_SIZE*MetersToPixels, SPRITE_SIZE*MetersToPixels,
-                                gameState->grassTexture);
-            }
+    for(int32 y = 0; y < gameState->tilemap.height; y++) {
+        for(int32 x = 0; x < gameState->tilemap.width; x++) {
+            uint32 tile = gameState->tilemap.tiles[y * gameState->tilemap.width + x];
+            UV uv = gameState->tilemapUVs[tile];
+            
+            DrawRectTextureUV(backBuffer,
+                              x * SPRITE_SIZE*MetersToPixels,
+                              y * SPRITE_SIZE*MetersToPixels,
+                              SPRITE_SIZE*MetersToPixels, SPRITE_SIZE*MetersToPixels,
+                              uv.umin, uv.vmin, uv.umax, uv.vmax, 
+                              gameState->tilemapTexture);
+
         }
     }
-
+#if 0
    for(int32 y = 0; y < gameState->tilesCountY; y++) {
         for(int32 x = 0; x < gameState->tilesCountX; x++) {
             
@@ -279,6 +352,7 @@ void GameUpdateAndRender(Memory *memory, GameSound *sound, GameInput *input, Gam
 
         }
    }
+#endif
 
     DrawRectTexture(backBuffer, 
                     gameState->heroX*MetersToPixels,
@@ -287,6 +361,7 @@ void GameUpdateAndRender(Memory *memory, GameSound *sound, GameInput *input, Gam
                     SPRITE_SIZE*1.5*MetersToPixels,
                     gameState->heroTexture);  
 
+#if 0
     centerX = gameState->heroX + SPRITE_SIZE*0.5f;
     centerY = gameState->heroY + SPRITE_SIZE;
     DrawDebugRect(backBuffer,
@@ -294,5 +369,6 @@ void GameUpdateAndRender(Memory *memory, GameSound *sound, GameInput *input, Gam
                   (centerY - 0.45f)*MetersToPixels,
                   0.9f*MetersToPixels, 0.9f*MetersToPixels,
                   0xFFFFFF00);
+#endif
    
 }

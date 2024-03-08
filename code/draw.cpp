@@ -57,11 +57,66 @@ void DrawRectTexture(GameBackBuffer *buffer, int32 x, int32 y, int32 width, int3
     
     uint32 *pixels = (uint32 *)buffer->data;
     for(int32 y = minY; y < maxY; y++) {
-
-        
+ 
         int32 texY = texture.height * ((float32)(y - minY + offsetY) / (float32)height);
         for(int32 x = minX; x < maxX; x++) {
             int32 texX = texture.width * ((float32)(x - minX + offsetX) / (float32)width);
+        
+            uint32 src = texture.data[texY * texture.width + texX];
+            uint32 dst = pixels[y * buffer->width + x];
+            
+            float32 A = (float32)((src >> 24) & 0x000000FF) / 255.0f;
+
+            int32 srcR = (src >> 16) & 0xFF;
+            int32 srcG = (src >> 8 ) & 0xFF;
+            int32 srcB = (src >> 0 ) & 0xFF;
+
+            int32 dstA = (dst >> 16) & 0xFF;
+            int32 dstR = (dst >> 16) & 0xFF;
+            int32 dstG = (dst >> 8 ) & 0xFF;
+            int32 dstB = (dst >> 0 ) & 0xFF;
+
+            int32 colR = (1 - A) * dstR + A * srcR;
+            int32 colG = (1 - A) * dstG + A * srcG;
+            int32 colB = (1 - A) * dstB + A * srcB;
+
+            int32 color = (dstA << 24) | (colR << 16) | (colG << 8) | (colB << 0);
+            
+            pixels[y * buffer->width + x] = color;
+        }
+    }
+
+}
+
+
+void DrawRectTextureUV(GameBackBuffer *buffer, int32 x, int32 y, int32 width, int32 height,
+                       float32 umin, float32 vmin, float32 umax, float32 vmax,
+                       Texture texture) {
+    int32 minX = MAX(x, 0);
+    int32 minY = MAX(y, 0);
+    int32 maxX = MIN(x + width, buffer->width);
+    int32 maxY = MIN(y + height, buffer->height);
+
+    int32 offsetX = -MIN(x, 0);
+    int32 offsetY = -MIN(y, 0);
+
+    int32 startX = (int32)(umin * texture.width);
+    int32 startY = (int32)(vmin * texture.height);
+    int32 endX = (int32)(umax * texture.width);
+    int32 endY = (int32)(vmax * texture.height);
+    
+    uint32 *pixels = (uint32 *)buffer->data;
+    for(int32 y = minY; y < maxY; y++) {
+
+        float32 ty = ((float32)(y - minY + offsetY) / (float32)height);
+        int32 texY = (1.0f - ty) * startY + ty * endY; 
+        
+
+        for(int32 x = minX; x < maxX; x++) {
+            
+            float32 tx = ((float32)(x - minX + offsetX) / (float32)width);
+            int32 texX = (1.0f - tx) * startX + tx * endX; 
+
         
             uint32 src = texture.data[texY * texture.width + texX];
             uint32 dst = pixels[y * buffer->width + x];

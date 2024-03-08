@@ -67,6 +67,13 @@ struct Texture {
     uint32 *data;
 };
 
+struct UV {
+    float32 umin;
+    float32 vmin;
+    float32 umax;
+    float32 vmax;
+};
+
 struct GameSound {
     // TODO: the Load function not necesary have to add a sound to a channel
     Sound (*Load) (Arena *arena, const char *name, bool playing, bool loop);
@@ -138,6 +145,12 @@ struct AdjustmentSensor {
     bool rHit;
 };
 
+struct Tilemap {
+    uint32 *tiles;
+    int32 width;
+    int32 height;
+};
+
 struct GameState {
 
     float32 heroX;
@@ -151,6 +164,10 @@ struct GameState {
 
     Texture heroTexture;
     Texture grassTexture;
+    Texture tilemapTexture;
+
+    Tilemap tilemap;
+    UV *tilemapUVs;
 
     uint32 *tiles;
     int32 tilesCountX;

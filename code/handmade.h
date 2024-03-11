@@ -7,23 +7,6 @@
 #ifndef handmade_h
 #define handmade_h
 
-struct Memory {
-    size_t size;
-    size_t used;
-    uint8 *data;
-};
-
-struct Arena {
-    size_t size;
-    size_t used;
-    uint8 *base;
-};
-
-Arena ArenaCreate(Memory *memory, size_t size);
-void *ArenaPushSize(Arena *arena, size_t size);
-#define ArenaPushStruct(arena, type) (type *)ArenaPushSize(arena, sizeof(type))
-#define ArenaPushArray(arena, count, type) (type *)ArenaPushSize(arena, count * sizeof(type))
-
 struct GameButton {
     int halfTransitionCount;
     bool endedDown;
@@ -90,23 +73,6 @@ struct GameBackBuffer {
     int pitch;
 };
 
-
-struct Vec2 {
-    union {
-        struct {
-            float32 x;
-            float32 y;
-        };
-        float32 v[2];
-    };
-
-    Vec2() : x(0), y(0) {}
-    Vec2(float32 x_, float32 y_) : x(x_), y(y_) {}
-    float32 operator[](const int32 &index) {
-        return v[index];
-    }
-};
-
 struct AABB {
     Vec2 min;
     Vec2 max; 
@@ -151,13 +117,30 @@ struct Tilemap {
     int32 height;
 };
 
+enum EntityType {
+    ENTITY_TYPE_PLAYER,
+    ENTITY_TYPE_ENEMY 
+};
+
+struct Entity {
+    uint32 uid;
+    EntityType type;
+
+    Vec2 pos;
+    Vec2 vel; 
+    Vec2 dim;
+
+    Vec2 spriteDim;
+
+    Entity *next;
+    Entity *prev;
+};
+
 struct GameState {
 
-    float32 heroX;
-    float32 heroY;
+    Entity *hero;
 
     Arena assetsArena;
-    Arena worldArena;
 
     Sound oliviaRodrigo;
     Sound missionCompleted;
@@ -169,6 +152,7 @@ struct GameState {
     Tilemap tilemap;
     UV *tilemapUVs;
 
+    // TODO: chagen this to use a Tilemap struct ...
     uint32 *tiles;
     int32 tilesCountX;
     int32 tilesCountY;
@@ -176,6 +160,9 @@ struct GameState {
     CollisionPacket frameCollisions[1024];
     int32 frameCollisionCount;
 
+    // TODO: change this to use a slotmap or something more cache friendly
+    MemoryPool entityPool;
+    Entity *entities;
 };
 
 #endif
@@ -184,3 +171,4 @@ struct GameState {
 static const float32 MetersToPixels = 32;
 static const float32 PixelsToMeters = 1.0f / MetersToPixels;
 static const int32 SPRITE_SIZE = 1;
+static const uint32 MaxEntityCount = 1024;

@@ -18,16 +18,20 @@
 #include <mach/mach_time.h>
 
 #include "common.h"
+#include "algebra.h"
+#include "memory.h"
 #include "handmade.h"
 
 #include "mac_renderer.cpp"
 #include "mac_input.cpp"
 #include "mac_sound_sys.cpp"
 
+#include "memory.cpp"
 #include "wave_file.cpp"
 #include "collision.cpp"
 #include "tilemap.cpp"
 #include "draw.cpp"
+#include "entity.cpp"
 #include "handmade.cpp"
 
 @interface MacWindow : NSWindow

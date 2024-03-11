@@ -5,35 +5,8 @@
 //  Created by Manuel Cabrerizo on 13/02/2024.
 //
 
-
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
-
-Arena ArenaCreate(Memory *memory, size_t size) {
-    ASSERT((memory->used + size) <= memory->size);
-
-    Arena arena;
-    arena.used = 0;
-    arena.size = size;
-    arena.base = memory->data + memory->used;
-
-    memory->used += size;
-
-    return arena;
-}
-
-void *ArenaPushSize(Arena *arena, size_t size) {
-    ASSERT((arena->used + size) <= arena->size);
-
-    void *data = arena->base + arena->used;
-
-    arena->used += size;
-
-    return data;
-}
-
-#define ArenaPushStruct(arena, type) (type *)ArenaPushSize(arena, sizeof(type))
-#define ArenaPushArray(arena, count, type) (type *)ArenaPushSize(arena, count * sizeof(type))
 
 Texture LoadTexture(Arena *arena, char const *path) {
 
@@ -148,7 +121,11 @@ void GameInitialize(Memory *memory, GameSound *sound, GameInput *input) {
 
     gameState->assetsArena = ArenaCreate(memory, MB(500));
 
-    gameState->oliviaRodrigo = sound->Load(&gameState->assetsArena, "test", true, true);
+    gameState->entityPool = MemoryPoolCreate(memory, MaxEntityCount, sizeof(Entity));
+
+    gameState->hero = CreatePlayer(gameState);
+
+    gameState->oliviaRodrigo = sound->Load(&gameState->assetsArena, "test", false, true);
     gameState->missionCompleted = sound->Load(&gameState->assetsArena, "test1", false, false);
 
     const char *heroPath = input->GetPath("link", "png"); 
@@ -171,12 +148,6 @@ void GameInitialize(Memory *memory, GameSound *sound, GameInput *input) {
     gameState->tilesCountX = collision.width;
     gameState->tilesCountY = collision.height;
     gameState->tiles = collision.tiles;
-
-    // hero start position
-    gameState->heroX = 0;
-    gameState->heroY = 0;
-
-
 }
 
 void GameUpdateAndRender(Memory *memory, GameSound *sound, GameInput *input, GameBackBuffer *backBuffer) {
@@ -189,142 +160,34 @@ void GameUpdateAndRender(Memory *memory, GameSound *sound, GameInput *input, Gam
         sound->Restart(gameState->missionCompleted);
         sound->Play(gameState->missionCompleted);
     }
-     
-    float32 ddpX = 0;
-    float32 ddpY = 0;
+
+    Entity *hero = gameState->hero;
     float32 inputX = 0;
     float32 inputY = 0;
     if(input->controllers[0].left.endedDown) {
-        ddpX -= 1;
+        hero->vel.x -= 1;
         inputX -= 1;
     }
     if(input->controllers[0].right.endedDown) {
-        ddpX += 1;
+        hero->vel.x += 1;
         inputX += 1;
     }
     if(input->controllers[0].up.endedDown) {
-        ddpY -= 1;
+        hero->vel.y -= 1;
         inputY -= 1;
     }
     if(input->controllers[0].down.endedDown) {
-        ddpY += 1;
+        hero->vel.y += 1;
         inputY += 1;
     }
 
-    float32 lenSq = ddpX * ddpX + ddpY * ddpY;
-    if(lenSq > 1.0f) {
-        float32 invLen = 1.0f/sqrtf(lenSq);
-        ddpX *= invLen;
-        ddpY *= invLen;
-    }
+    Normalize(&hero->vel);
+    hero->vel *= 0.075f * 60.0f * dt;
 
-    ddpX *= 0.075f * 60.0f * dt;
-    ddpY *= 0.075f * 60.0f * dt;
-
-    float32 centerX = gameState->heroX + SPRITE_SIZE*0.5f;
-    float32 centerY = gameState->heroY + SPRITE_SIZE;
-
-    // check simple collisions
-    gameState->frameCollisionCount = 0;
-    
-    // olny check the posible tiles, not the entire tilemap
-    AABB oldP;
-    oldP.min = Vec2(centerX - 0.45f, centerY - 0.45f); 
-    oldP.max = Vec2(centerX + 0.45f, centerY + 0.45f); 
-
-    AABB newP;
-    newP.min = Vec2(centerX + ddpX - 0.45f, centerY + ddpY - 0.45f); 
-    newP.max = Vec2(centerX + ddpX + 0.45f, centerY + ddpY + 0.45f); 
-
-    int32 minX = (int32)floorf(MIN(oldP.min.x, newP.min.x));
-    int32 minY = (int32)floorf(MIN(oldP.min.y, newP.min.y));
-    int32 maxX = (int32)ceilf(MAX(oldP.max.x, newP.max.x));
-    int32 maxY = (int32)ceilf(MAX(oldP.max.y, newP.max.y)); 
-
-    // clamp to fall inside the tilemap
-    minX = MAX(minX, 0);
-    minY = MAX(minY, 0);
-    maxX = MIN(maxX, gameState->tilesCountX);
-    maxY = MIN(maxY, gameState->tilesCountY);
-    
-    // Generate Frame Collision Data And Collision Detection
-    for(int32 y = minY; y < maxY; y++) {
-        for(int32 x = minX; x < maxX; x++) {
-            
-            TileCollisionType tileType = (TileCollisionType)gameState->tiles[y * gameState->tilesCountX + x];
-            CollisionTile collision = GenerateCollisionTile(tileType, x, y, centerX, centerY, ddpX, ddpY);
-            for(int32 i = 0; i < collision.count; i++) {
-                ASSERT((gameState->frameCollisionCount + 1) <= 1024);
-                gameState->frameCollisions[gameState->frameCollisionCount++] = collision.packets[i];
-            }
-
-        }
-    }
-
-    // Collision Resolution
-    SortCollisionPacket(gameState->frameCollisions, gameState->frameCollisionCount);
-    for(int32 i = 0; i < gameState->frameCollisionCount; i++) {
-
-        CollisionPacket collision = gameState->frameCollisions[i];
-
-        AABB aabb;
-        aabb.min = Vec2(collision.x - 0.45f, collision.y - 0.45f);
-        aabb.max = Vec2(collision.x + collision.sizeX + 0.45f, collision.y + collision.sizeY + 0.45f);
-
-        Vec2 contactPoint;
-        Vec2 contactNorm;
-        float32 t = -1.0f; 
-        if(RayVsAABB(Vec2(centerX, centerY), Vec2(ddpX, ddpY), aabb, contactPoint, contactNorm, t) && t <= 1.0f) {
-
-            centerX = (contactPoint.x + contactNorm.x * 0.0001f);
-            centerY = (contactPoint.y + contactNorm.y * 0.0001f);
-
-            float32 tRest = 1.0f - t;
-            ddpX *= tRest; 
-            ddpY *= tRest;
-            ddpX += (contactNorm.x * fabsf(ddpX));
-            ddpY += (contactNorm.y * fabsf(ddpY));
-        }
-
-    }
-
-    AdjustmentSensor sensor = AdjustCollisionWithTile(gameState, minX, maxX, minY, maxY,
-                                                      centerX, centerY, inputX, inputY);
-
-    // TODO: update the velocity intead of change the position directly
-    if(inputX != 0.0f && inputY != 0.0f) {
-    }
-    else if(inputX != 0.0f) {
-        if(sensor.mHit == false) {
-            if(sensor.lHit) {
-                centerY += 1.0f * 0.075f * 60.0f * dt;
-            }
-            if(sensor.rHit) { 
-                centerY -= 1.0f * 0.075f * 60.0f * dt;
-            }
-        }
-    }
-    else if(inputY != 0.0f) {
-        if(sensor.mHit == false) {
-            if(sensor.lHit) {
-                centerX += 1.0f * 0.075f * 60.0f * dt;
-            }
-            if(sensor.rHit) { 
-                centerX -= 1.0f * 0.075f * 60.0f * dt;
-            }
-        }
-    }
-
-    gameState->heroX = centerX - SPRITE_SIZE*0.5f;
-    gameState->heroY = centerY - SPRITE_SIZE;
-
-    gameState->heroX += ddpX;
-    gameState->heroY += ddpY;
-
+    MoveEntity(gameState, hero, inputX, inputY, dt);
+     
  
     // Rendering Code ...
-    DrawRect(backBuffer, 0, 0, backBuffer->width, backBuffer->height, 0xFFAABBAA);
-
     // Draw the tilemap
     for(int32 y = 0; y < gameState->tilemap.height; y++) {
         for(int32 x = 0; x < gameState->tilemap.width; x++) {
@@ -340,7 +203,7 @@ void GameUpdateAndRender(Memory *memory, GameSound *sound, GameInput *input, Gam
 
         }
     }
-#if 0
+#if 1
    for(int32 y = 0; y < gameState->tilesCountY; y++) {
         for(int32 x = 0; x < gameState->tilesCountX; x++) {
             
@@ -355,19 +218,19 @@ void GameUpdateAndRender(Memory *memory, GameSound *sound, GameInput *input, Gam
 #endif
 
     DrawRectTexture(backBuffer, 
-                    gameState->heroX*MetersToPixels,
-                    gameState->heroY*MetersToPixels,
-                    SPRITE_SIZE*MetersToPixels,
-                    SPRITE_SIZE*1.5*MetersToPixels,
+                    hero->pos.x*MetersToPixels,
+                    hero->pos.y*MetersToPixels,
+                    hero->spriteDim.x*MetersToPixels,
+                    hero->spriteDim.y*MetersToPixels,
                     gameState->heroTexture);  
 
-#if 0
-    centerX = gameState->heroX + SPRITE_SIZE*0.5f;
-    centerY = gameState->heroY + SPRITE_SIZE;
+#if 1
+    float32 centerX = hero->pos.x + (hero->spriteDim.x * 0.5f);
+    float32 centerY = hero->pos.y + (hero->spriteDim.y * 0.5f);
     DrawDebugRect(backBuffer,
-                  (centerX - 0.45f)*MetersToPixels,
-                  (centerY - 0.45f)*MetersToPixels,
-                  0.9f*MetersToPixels, 0.9f*MetersToPixels,
+                  (centerX - hero->dim.x * 0.5f)*MetersToPixels,
+                  (centerY - hero->dim.y * 0.5f)*MetersToPixels,
+                  hero->dim.x*MetersToPixels, hero->dim.y*MetersToPixels,
                   0xFFFFFF00);
 #endif
    

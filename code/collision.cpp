@@ -91,6 +91,7 @@ void SortCollisionPacket(CollisionPacket *collisions, int32 count) {
 // link to the pass collision adjusment
 void CollisionAdjusment(AABB aabbOther,
                         float32 centerX, float32 centerY,
+                        float32 size,
                         float32 inputX, float32 inputY,
                         bool &lHit, bool &mHit, bool &rHit) {
     float32 buttonPressed = inputX * inputX + inputY * inputY;
@@ -99,8 +100,8 @@ void CollisionAdjusment(AABB aabbOther,
         AABB sensorL;
         AABB sensorM;
         AABB sensorR;
-
-        float32 size = 0.9f;
+        
+        // TODO: fix the size, should not be related to the size of the collider to slide diagonaly properly
         float32 LRwidth = 0.25f * size;
         float32 Mwidth = 0.4f * size;
         float32 height = 0.125f * size;

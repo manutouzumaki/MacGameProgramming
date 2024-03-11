@@ -5,16 +5,16 @@
 //  Created by Manuel Cabrerizo on 27/02/2024.
 //
 
-// TODO: see if the iterator pattern works here ....
+// TODO: remove the hardcoded 0.45f to be an entity spesific value
 
-CollisionTile GenerateCollisionTileSQ(int32 x, int32 y, float32 centerX, float32 centerY, float32 ddpX, float32 ddpY) {
+CollisionTile GenerateCollisionTileSQ(int32 x, int32 y, float32 centerX, float32 centerY, float32 ddpX, float32 ddpY, float32 hDimX, float32 hDimY) {
     CollisionTile result;
     result.count = 0;
 
     // TODO: pass the size of the sprite that is going to collide with this
     AABB aabbOuter;
-    aabbOuter.min = Vec2(x - 0.45f, y - 0.45f);
-    aabbOuter.max = Vec2(x + SPRITE_SIZE + 0.45f, y + SPRITE_SIZE + 0.45f); 
+    aabbOuter.min = Vec2(x - hDimX, y - hDimY);
+    aabbOuter.max = Vec2(x + SPRITE_SIZE + hDimX, y + SPRITE_SIZE + hDimY); 
    
     Vec2 contactPoint;
     Vec2 contactNorm;
@@ -33,7 +33,7 @@ CollisionTile GenerateCollisionTileSQ(int32 x, int32 y, float32 centerX, float32
     return result;
 }
 
-CollisionTile GenerateCollisionTileRU(int32 count, int32 x, int32 y, float32 centerX, float32 centerY, float32 ddpX, float32 ddpY) {
+CollisionTile GenerateCollisionTileRU(int32 count, int32 x, int32 y, float32 centerX, float32 centerY, float32 ddpX, float32 ddpY, float32 hDimX, float32 hDimY) {
     CollisionTile result;
     result.count = 0;
 
@@ -45,8 +45,8 @@ CollisionTile GenerateCollisionTileRU(int32 count, int32 x, int32 y, float32 cen
         for(int32 i = 0; i < j + 1; i++) {                
 
             AABB aabbOuter;
-            aabbOuter.min = Vec2(posX - 0.45f, posY - 0.45f);
-            aabbOuter.max = Vec2(posX + sizeX + 0.45f, posY + sizeY + 0.45f); 
+            aabbOuter.min = Vec2(posX - hDimX, posY - hDimY);
+            aabbOuter.max = Vec2(posX + sizeX + hDimX, posY + sizeY + hDimY); 
            
             Vec2 contactPoint;
             Vec2 contactNorm;
@@ -71,7 +71,7 @@ CollisionTile GenerateCollisionTileRU(int32 count, int32 x, int32 y, float32 cen
     return result;
 }
 
-CollisionTile GenerateCollisionTileRD(int32 count, int32 x, int32 y, float32 centerX, float32 centerY, float32 ddpX, float32 ddpY) {
+CollisionTile GenerateCollisionTileRD(int32 count, int32 x, int32 y, float32 centerX, float32 centerY, float32 ddpX, float32 ddpY, float32 hDimX, float32 hDimY) {
     CollisionTile result;
     result.count = 0;
 
@@ -83,8 +83,8 @@ CollisionTile GenerateCollisionTileRD(int32 count, int32 x, int32 y, float32 cen
         for(int32 i = 0; i < count - j; i++) {                
 
             AABB aabbOuter;
-            aabbOuter.min = Vec2(posX - 0.45f, posY - 0.45f);
-            aabbOuter.max = Vec2(posX + sizeX + 0.45f, posY + sizeY + 0.45f); 
+            aabbOuter.min = Vec2(posX - hDimX, posY - hDimY);
+            aabbOuter.max = Vec2(posX + sizeX + hDimX, posY + sizeY + hDimY); 
            
             Vec2 contactPoint;
             Vec2 contactNorm;
@@ -109,7 +109,7 @@ CollisionTile GenerateCollisionTileRD(int32 count, int32 x, int32 y, float32 cen
     return result;
 }
 
-CollisionTile GenerateCollisionTileLU(int32 count, int32 x, int32 y, float32 centerX, float32 centerY, float32 ddpX, float32 ddpY) {
+CollisionTile GenerateCollisionTileLU(int32 count, int32 x, int32 y, float32 centerX, float32 centerY, float32 ddpX, float32 ddpY, float32 hDimX, float32 hDimY) {
     CollisionTile result;
     result.count = 0;
 
@@ -121,8 +121,8 @@ CollisionTile GenerateCollisionTileLU(int32 count, int32 x, int32 y, float32 cen
         for(int32 i = 0; i < j + 1; i++) {                
 
             AABB aabbOuter;
-            aabbOuter.min = Vec2(posX - 0.45f, posY - 0.45f);
-            aabbOuter.max = Vec2(posX + sizeX + 0.45f, posY + sizeY + 0.45f); 
+            aabbOuter.min = Vec2(posX - hDimX, posY - hDimY);
+            aabbOuter.max = Vec2(posX + sizeX + hDimX, posY + sizeY + hDimY); 
            
             Vec2 contactPoint;
             Vec2 contactNorm;
@@ -147,7 +147,7 @@ CollisionTile GenerateCollisionTileLU(int32 count, int32 x, int32 y, float32 cen
     return result;
 }
 
-CollisionTile GenerateCollisionTileLD(int32 count, int32 x, int32 y, float32 centerX, float32 centerY, float32 ddpX, float32 ddpY) {
+CollisionTile GenerateCollisionTileLD(int32 count, int32 x, int32 y, float32 centerX, float32 centerY, float32 ddpX, float32 ddpY, float32 hDimX, float32 hDimY) {
     CollisionTile result;
     result.count = 0;
 
@@ -159,8 +159,8 @@ CollisionTile GenerateCollisionTileLD(int32 count, int32 x, int32 y, float32 cen
         for(int32 i = 0; i < count - j; i++) {                
 
             AABB aabbOuter;
-            aabbOuter.min = Vec2(posX - 0.45f, posY - 0.45f);
-            aabbOuter.max = Vec2(posX + sizeX + 0.45f, posY + sizeY + 0.45f); 
+            aabbOuter.min = Vec2(posX - hDimX, posY - hDimY);
+            aabbOuter.max = Vec2(posX + sizeX + hDimX, posY + sizeY + hDimY); 
            
             Vec2 contactPoint;
             Vec2 contactNorm;
@@ -208,30 +208,30 @@ int32 GetTileCount(TileCollisionType tileType) {
     return count;
 }
 
-CollisionTile GenerateCollisionTile(TileCollisionType tileType, int32 x, int32 y, float32 centerX, float32 centerY, float32 ddpX, float32 ddpY) {
+CollisionTile GenerateCollisionTile(TileCollisionType tileType, int32 x, int32 y, float32 centerX, float32 centerY, float32 ddpX, float32 ddpY, float32 hDimX, float32 hDimY) {
     
     int32 count = GetTileCount(tileType);
     
     switch(tileType) {
         case TILE_COLLISION_TYPE_NO_COLLISION: break;
         case TILE_COLLISION_TYPE_16x16: {
-            return GenerateCollisionTileSQ(x, y, centerX, centerY, ddpX, ddpY);
+            return GenerateCollisionTileSQ(x, y, centerX, centerY, ddpX, ddpY, hDimX, hDimY);
         } break;
         case TILE_COLLISION_TYPE_8x8_L_U:
         case TILE_COLLISION_TYPE_4x4_L_U: {
-            return GenerateCollisionTileLU(count, x, y, centerX, centerY, ddpX, ddpY);
+            return GenerateCollisionTileLU(count, x, y, centerX, centerY, ddpX, ddpY, hDimX, hDimY);
         } break;
         case TILE_COLLISION_TYPE_8x8_R_U:
         case TILE_COLLISION_TYPE_4x4_R_U: {
-            return GenerateCollisionTileRU(count, x, y, centerX, centerY, ddpX, ddpY);
+            return GenerateCollisionTileRU(count, x, y, centerX, centerY, ddpX, ddpY, hDimX, hDimY);
         } break;
         case TILE_COLLISION_TYPE_8x8_L_D:
         case TILE_COLLISION_TYPE_4x4_L_D: {
-            return GenerateCollisionTileLD(count, x, y, centerX, centerY, ddpX, ddpY);
+            return GenerateCollisionTileLD(count, x, y, centerX, centerY, ddpX, ddpY, hDimX, hDimY);
         } break;
         case TILE_COLLISION_TYPE_8x8_R_D:
         case TILE_COLLISION_TYPE_4x4_R_D: {
-            return GenerateCollisionTileRD(count, x, y, centerX, centerY, ddpX, ddpY);
+            return GenerateCollisionTileRD(count, x, y, centerX, centerY, ddpX, ddpY, hDimX, hDimY);
         } break;
     }
     
@@ -244,17 +244,19 @@ CollisionTile GenerateCollisionTile(TileCollisionType tileType, int32 x, int32 y
 void AdjustCollisionWithTileSQ(AdjustmentSensor& sensor,
                                int32 x, int32 y,
                                float32 centerX, float32 centerY,
+                               float32 size,
                                float32 inputX, float32 inputY) {
     AABB aabbOther;
     aabbOther.min = Vec2(x, y);
     aabbOther.max = Vec2(x + SPRITE_SIZE, y + SPRITE_SIZE);
-    CollisionAdjusment(aabbOther, centerX, centerY, inputX, inputY,
+    CollisionAdjusment(aabbOther, centerX, centerY, size, inputX, inputY,
                        sensor.lHit, sensor.mHit, sensor.rHit);
 }
 
 void AdjustCollisionWithTileLU(int32 count, AdjustmentSensor& sensor,
                                int32 x, int32 y,
                                float32 centerX, float32 centerY,
+                               float32 size,
                                float32 inputX, float32 inputY) {
     float32 sizeX = (float32)SPRITE_SIZE / (float32)count;
     float32 sizeY = (float32)SPRITE_SIZE / (float32)count;
@@ -266,7 +268,7 @@ void AdjustCollisionWithTileLU(int32 count, AdjustmentSensor& sensor,
             AABB aabbOther;
             aabbOther.min = Vec2(posX, posY);
             aabbOther.max = Vec2(posX + sizeX, posY + sizeY); 
-            CollisionAdjusment(aabbOther, centerX, centerY, inputX, inputY,
+            CollisionAdjusment(aabbOther, centerX, centerY, size, inputX, inputY,
                                sensor.lHit, sensor.mHit, sensor.rHit);
             posX -= sizeX;
         }
@@ -278,6 +280,7 @@ void AdjustCollisionWithTileLU(int32 count, AdjustmentSensor& sensor,
 void AdjustCollisionWithTileRU(int32 count, AdjustmentSensor& sensor,
                                int32 x, int32 y,
                                float32 centerX, float32 centerY,
+                               float32 size,
                                float32 inputX, float32 inputY) {
     float32 sizeX = (float32)SPRITE_SIZE / (float32)count;
     float32 sizeY = (float32)SPRITE_SIZE / (float32)count;
@@ -288,7 +291,7 @@ void AdjustCollisionWithTileRU(int32 count, AdjustmentSensor& sensor,
             AABB aabbOther;
             aabbOther.min = Vec2(posX, posY);
             aabbOther.max = Vec2(posX + sizeX, posY + sizeY);
-            CollisionAdjusment(aabbOther, centerX, centerY, inputX, inputY,
+            CollisionAdjusment(aabbOther, centerX, centerY, size, inputX, inputY,
                                sensor.lHit, sensor.mHit, sensor.rHit);
             posX += sizeX;
         }
@@ -300,6 +303,7 @@ void AdjustCollisionWithTileRU(int32 count, AdjustmentSensor& sensor,
 void AdjustCollisionWithTileLD(int32 count, AdjustmentSensor& sensor,
                                int32 x, int32 y,
                                float32 centerX, float32 centerY,
+                               float32 size,
                                float32 inputX, float32 inputY) {
     float32 sizeX = (float32)SPRITE_SIZE / (float32)count;
     float32 sizeY = (float32)SPRITE_SIZE / (float32)count;
@@ -311,7 +315,7 @@ void AdjustCollisionWithTileLD(int32 count, AdjustmentSensor& sensor,
             AABB aabbOther;
             aabbOther.min = Vec2(posX, posY);
             aabbOther.max = Vec2(posX + sizeX, posY + sizeY); 
-            CollisionAdjusment(aabbOther, centerX, centerY, inputX, inputY,
+            CollisionAdjusment(aabbOther, centerX, centerY, size, inputX, inputY,
                                sensor.lHit, sensor.mHit, sensor.rHit);
             posX -= sizeX;
         }
@@ -323,6 +327,7 @@ void AdjustCollisionWithTileLD(int32 count, AdjustmentSensor& sensor,
 void AdjustCollisionWithTileRD(int32 count, AdjustmentSensor& sensor,
                                int32 x, int32 y,
                                float32 centerX, float32 centerY,
+                               float32 size,
                                float32 inputX, float32 inputY) {
     float32 sizeX = (float32)SPRITE_SIZE / (float32)count;
     float32 sizeY = (float32)SPRITE_SIZE / (float32)count;
@@ -333,7 +338,7 @@ void AdjustCollisionWithTileRD(int32 count, AdjustmentSensor& sensor,
             AABB aabbOther;
             aabbOther.min = Vec2(posX, posY);
             aabbOther.max = Vec2(posX + sizeX, posY + sizeY);
-            CollisionAdjusment(aabbOther, centerX, centerY, inputX, inputY,
+            CollisionAdjusment(aabbOther, centerX, centerY, size, inputX, inputY,
                                sensor.lHit, sensor.mHit, sensor.rHit);
             posX += sizeX;
         }
@@ -347,6 +352,7 @@ AdjustmentSensor AdjustCollisionWithTile(GameState *gameState,
                                          int32 minX, int32 maxX,
                                          int32 minY, int32 maxY,
                                          float32 centerX, float32 centerY,
+                                         float32 size,
                                          float32 inputX, float32 inputY) {
 
     AdjustmentSensor sensor = {};
@@ -360,23 +366,23 @@ AdjustmentSensor AdjustCollisionWithTile(GameState *gameState,
             switch(tileType) {
                 case TILE_COLLISION_TYPE_NO_COLLISION: break;
                 case TILE_COLLISION_TYPE_16x16: {
-                    AdjustCollisionWithTileSQ(sensor, x, y, centerX, centerY, inputX, inputY);
+                    AdjustCollisionWithTileSQ(sensor, x, y, centerX, centerY, size, inputX, inputY);
                 } break;
                 case TILE_COLLISION_TYPE_8x8_L_U:
                 case TILE_COLLISION_TYPE_4x4_L_U: {
-                    AdjustCollisionWithTileLU(count, sensor, x, y, centerX, centerY, inputX, inputY);
+                    AdjustCollisionWithTileLU(count, sensor, x, y, centerX, centerY, size, inputX, inputY);
                 } break;
                 case TILE_COLLISION_TYPE_8x8_R_U:
                 case TILE_COLLISION_TYPE_4x4_R_U: {
-                    AdjustCollisionWithTileRU(count, sensor, x, y, centerX, centerY, inputX, inputY);
+                    AdjustCollisionWithTileRU(count, sensor, x, y, centerX, centerY, size, inputX, inputY);
                 } break;
                 case TILE_COLLISION_TYPE_8x8_L_D:
                 case TILE_COLLISION_TYPE_4x4_L_D: {
-                    AdjustCollisionWithTileLD(count, sensor, x, y, centerX, centerY, inputX, inputY);
+                    AdjustCollisionWithTileLD(count, sensor, x, y, centerX, centerY, size, inputX, inputY);
                 } break;
                 case TILE_COLLISION_TYPE_8x8_R_D:
                 case TILE_COLLISION_TYPE_4x4_R_D: {
-                    AdjustCollisionWithTileRD(count, sensor, x, y, centerX, centerY, inputX, inputY);
+                    AdjustCollisionWithTileRD(count, sensor, x, y, centerX, centerY, size, inputX, inputY);
                 } break;
             }
         }

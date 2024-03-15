@@ -39,8 +39,8 @@ bool RayVsAABB(Vec2 origin, Vec2 dir, AABB rect, Vec2 &contactPoint, Vec2 &conta
 
     if(tNearX > tFarY || tNearY > tFarX) return false;
 
-    tHitNear = MAX(tNearX, tNearY);
-    float32 tHitMax = MIN(tFarX, tFarY);
+    tHitNear = Max(tNearX, tNearY);
+    float32 tHitMax = Min(tFarX, tFarY);
     if(tHitMax < 0) return false;
 
     contactPoint.x = origin.x + tHitNear * dir.x;

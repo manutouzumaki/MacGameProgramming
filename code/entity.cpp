@@ -67,16 +67,16 @@ void MoveEntity(GameState *gameState, Entity *entity, float32 inputX, float32 in
     newP.min = Vec2(centerX + ddpX - hDim.x, centerY + ddpY - hDim.y); 
     newP.max = Vec2(centerX + ddpX + hDim.x, centerY + ddpY + hDim.y); 
 
-    int32 minX = (int32)floorf(MIN(oldP.min.x, newP.min.x));
-    int32 minY = (int32)floorf(MIN(oldP.min.y, newP.min.y));
-    int32 maxX = (int32)ceilf(MAX(oldP.max.x, newP.max.x));
-    int32 maxY = (int32)ceilf(MAX(oldP.max.y, newP.max.y)); 
+    int32 minX = (int32)floorf(Min(oldP.min.x, newP.min.x));
+    int32 minY = (int32)floorf(Min(oldP.min.y, newP.min.y));
+    int32 maxX = (int32)ceilf(Max(oldP.max.x, newP.max.x));
+    int32 maxY = (int32)ceilf(Max(oldP.max.y, newP.max.y)); 
 
     // clamp to fall inside the tilemap
-    minX = MAX(minX, 0);
-    minY = MAX(minY, 0);
-    maxX = MIN(maxX, gameState->tilesCountX);
-    maxY = MIN(maxY, gameState->tilesCountY);
+    minX = Max(minX, 0);
+    minY = Max(minY, 0);
+    maxX = Min(maxX, gameState->tilesCountX);
+    maxY = Min(maxY, gameState->tilesCountY);
     
     // Generate Frame Collision Data And Collision Detection
     for(int32 y = minY; y < maxY; y++) {

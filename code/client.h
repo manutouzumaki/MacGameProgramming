@@ -136,10 +136,38 @@ struct Entity {
     Entity *prev;
 };
 
+struct InputState {
+    Vec2 vel;
+    float32 inputX;
+    float32 inputY;
+    float32 deltaTime;
+    float64 timeStamp;
+};  
+
+struct PacketInput {
+    uint32 header;
+    uint32 type;
+    int32 samplesCount;
+    InputState samples[3];
+};
+
+struct PacketState {
+    uint32 header;
+    uint32 type;
+    Vec2 pos;
+    Vec2 vel;
+};
+
+enum ClientState {
+    CLIENT_STATE_HELLO,
+    CLIENT_STATE_WELCOMED
+};
+
 struct GameState {
 
-    Entity *hero;
+    Entity *entity;
 
+    Arena networkArena;
     Arena assetsArena;
 
     Sound oliviaRodrigo;
@@ -163,6 +191,22 @@ struct GameState {
     // TODO: change this to use a slotmap or something more cache friendly
     MemoryPool entityPool;
     Entity *entities;
+    HashMap<Entity *> networkToEntity;
+
+    float64 totalGameTime;
+    InputState inputSamples[3];
+    int32  inputSamplesCount;
+    float32 lastTimeStamp;
+
+
+    UDPSocket socket;
+    UDPAddress address;
+
+    ClientState clientState;
+    UDPAddress sendAddress;
+
+    float32 timePassFromLastInputSampled;
+    float32 timePassFromLastInputPacket;
 };
 
 #endif
@@ -172,3 +216,17 @@ static const float32 MetersToPixels = 32;
 static const float32 PixelsToMeters = 1.0f / MetersToPixels;
 static const int32 SPRITE_SIZE = 1;
 static const uint32 MaxEntityCount = 1024;
+
+static const uint32 PacketHeader      = 'PIPE';
+static const uint32 PacketTypeHello   = 'HELO';
+static const uint32 PacketTypeState   = 'STAT';
+static const uint32 PacketTypeWelcome = 'WLCM';
+
+static const float32 TimeBetweenHellos = 1.f;
+
+static const float32 TimeBetweenInputPackets = 0.033f;
+static const float32 TimeBetweenInputSamples = 0.03f;
+
+static const uint32  MaxPacketPerFrameCount = 10;
+
+

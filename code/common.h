@@ -33,6 +33,9 @@ typedef uint32_t bool32;
 #define ASSERT(condition) 
 #endif
 
+#define Max(a, b) ((a) >= (b) ? (a) : (b))
+#define Min(a, b) ((a) <= (b) ? (a) : (b))
+
 #define KB(value) ((value)*1024LL)
 #define MB(value) (KB(value)*1024LL)
 #define GB(value) (MB(value)*1024LL)

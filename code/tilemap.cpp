@@ -5,7 +5,56 @@
 //  Created by Manuel Cabrerizo on 27/02/2024.
 //
 
-// TODO: remove the hardcoded 0.45f to be an entity spesific value
+
+Tilemap LoadCSVTilemap(Arena *arena, const char *szFileName, int32 width, int32 height, bool collision = false) {
+
+    FILE *file = fopen(szFileName, "r");
+    if(!file) {
+        // TODO: handle this
+    }
+    // go to the end of the file
+    fseek(file, 0, SEEK_END);
+    // get the size of the file to alloc the memory we need
+    long int fileSize = ftell(file);
+    // go back to the start of the file
+    fseek(file, 0, SEEK_SET);
+    // alloc the memory
+    uint8 *fileData = (uint8 *)ArenaPushSize(arena, fileSize + 1);
+    memset(fileData, 0, fileSize + 1);
+    // store the content of the file
+    fread(fileData, fileSize, 1, file);
+    fileData[fileSize] = 0; // null terminating string...
+    fclose(file);
+
+
+    Tilemap result; 
+    result.tiles = (uint32 *)ArenaPushSize(arena, width * height * sizeof(uint32));
+    result.width = width;
+    result.height = height;
+    
+    int32 counter = 0;
+    char *value = (char *)fileData;
+    while(*value) {
+        int size = 0;
+        
+        char *iterator = value;
+        while(*iterator != ',' && *iterator != '\n' && *iterator != 0) {
+            size++;
+            iterator++;
+        }
+
+        static char buffer[32];
+        memcpy(buffer, value, size);
+        buffer[size] = '\0';
+        int32 tile = atoi(buffer);
+        result.tiles[counter++] = collision ? (uint32)(tile + 1) : (uint32)tile;
+        
+        value += size + 1;
+    }
+
+    return result;
+}
+
 
 CollisionTile GenerateCollisionTileSQ(int32 x, int32 y, float32 centerX, float32 centerY, float32 ddpX, float32 ddpY, float32 hDimX, float32 hDimY) {
     CollisionTile result;

@@ -20,19 +20,21 @@
 #include "common.h"
 #include "algebra.h"
 #include "memory.h"
-#include "handmade.h"
+#include "network.h"
+#include "client.h"
 
 #include "mac_renderer.cpp"
 #include "mac_input.cpp"
 #include "mac_sound_sys.cpp"
 
 #include "memory.cpp"
+#include "network.cpp"
 #include "wave_file.cpp"
 #include "collision.cpp"
 #include "tilemap.cpp"
 #include "draw.cpp"
 #include "entity.cpp"
-#include "handmade.cpp"
+#include "client.cpp"
 
 @interface MacWindow : NSWindow
 @end
@@ -75,7 +77,7 @@ static MacSoundSystem gMacSoundSys;
 static const int32 WINDOW_WIDTH  = 800; 
 static const int32 WINDOW_HEIGHT = 600; 
 
-static const int32 GAME_MEMORY_SIZE = GB(1);
+static const int32 GAME_MEMORY_SIZE = MB(100);
 
 @implementation MacWindow
 - (void)keyDown:(NSEvent *)event { /* NOTE: this removes the beeps that the keyboard does */ }
@@ -226,7 +228,7 @@ void MacAppicationInitialize(MacApp *app) {
     app->windowDelegate = [[MacWindowDelegate alloc] init];
     [app->window setDelegate: app->windowDelegate];
     [app->window setBackgroundColor: [NSColor whiteColor]];
-    [app->window setTitle: @"HandmadeMac"];
+    [app->window setTitle: @"MacClient"];
     [app->window makeKeyAndOrderFront: nil];
 
     if(InilializeMetal(&gRenderer) == false) {
